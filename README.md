@@ -23,8 +23,17 @@ A graphical user interface for managing multi-agent development workflows using 
 ### Main Window
 The main window shows all tasks across all statuses (pending, active, completed, failed) in a single table view.
 
+![Main Window](assets/docs_img_main.png)
+
+### Create Task
+Create new tasks with AI-powered description generation, agent selection, and automated workflow options.
+
+![Create Task Dialog](assets/docs_img_create_task.png)
+
 ### Task Details
 Double-click any task to view complete details including description, timestamps, and access to logs.
+
+![Task Details](assets/docs_img_task_details.png)
 
 ## Requirements
 
