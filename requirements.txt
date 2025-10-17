@@ -1,0 +1,8 @@
+# Multi-Agent Task Queue Manager Requirements
+# This application uses only Python standard library
+# No external dependencies required!
+
+# For development/testing only:
+# pytest>=7.0.0
+# black>=22.0.0
+# mypy>=0.950

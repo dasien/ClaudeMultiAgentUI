@@ -1,0 +1,626 @@
+"""
+Dialog windows for the Task Queue Manager.
+"""
+
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+from pathlib import Path
+import platform
+
+from .config import Config
+
+
+class ConnectDialog:
+    """Dialog for connecting to a queue manager."""
+
+    def __init__(self, parent):
+        self.result = None
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Connect to Queue Manager")
+        self.dialog.geometry("600x300")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        # Center on parent
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+        # Wait for dialog to close
+        self.dialog.wait_window()
+
+    def build_ui(self):
+        # Instructions
+        ttk.Label(
+            self.dialog,
+            text="Select the project root directory (containing .claude folder):",
+            wraplength=550
+        ).pack(pady=10, padx=20)
+
+        # Script path
+        path_frame = ttk.Frame(self.dialog)
+        path_frame.pack(fill=tk.X, padx=20, pady=5)
+
+        ttk.Label(path_frame, text="Project Root Directory:").pack(anchor=tk.W)
+
+        entry_frame = ttk.Frame(path_frame)
+        entry_frame.pack(fill=tk.X, pady=5)
+
+        self.path_var = tk.StringVar()
+        self.path_entry = ttk.Entry(entry_frame, textvariable=self.path_var)
+        self.path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        ttk.Button(entry_frame, text="Browse...", command=self.browse).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Validation frame
+        self.validation_frame = ttk.LabelFrame(self.dialog, text="Validation", padding=10)
+        self.validation_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        self.project_root_label = ttk.Label(self.validation_frame, text="Project Root: ")
+        self.project_root_label.pack(anchor=tk.W)
+
+        self.queue_file_label = ttk.Label(self.validation_frame, text="Queue File: ")
+        self.queue_file_label.pack(anchor=tk.W)
+
+        self.logs_dir_label = ttk.Label(self.validation_frame, text="Logs Dir: ")
+        self.logs_dir_label.pack(anchor=tk.W)
+
+        # Buttons
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(pady=10)
+
+        self.connect_btn = ttk.Button(button_frame, text="Connect", command=self.connect, state=tk.DISABLED)
+        self.connect_btn.pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+
+        # Trace path changes (use trace_add for Python 3.6+ compatibility)
+        self.path_var.trace_add('write', lambda *args: self.validate_path())
+
+    def browse(self):
+        directory = filedialog.askdirectory(
+            parent=self.dialog,
+            title="Select Project Root Directory",
+            mustexist=True
+        )
+
+        if directory:
+            self.path_var.set(directory)
+
+    def validate_path(self):
+        path_str = self.path_var.get()
+
+        if not path_str:
+            self.connect_btn.config(state=tk.DISABLED)
+            return
+
+        project_root = Path(path_str)
+
+        if not project_root.exists():
+            self.project_root_label.config(text="Project Root: ✗ Directory not found", foreground='red')
+            self.queue_file_label.config(text="Queue File: ", foreground='black')
+            self.logs_dir_label.config(text="Logs Dir: ", foreground='black')
+            self.connect_btn.config(state=tk.DISABLED)
+            return
+
+        if not project_root.is_dir():
+            self.project_root_label.config(text="Project Root: ✗ Not a directory", foreground='red')
+            self.queue_file_label.config(text="Queue File: ", foreground='black')
+            self.logs_dir_label.config(text="Logs Dir: ", foreground='black')
+            self.connect_btn.config(state=tk.DISABLED)
+            return
+
+        # Look for required files/folders
+        queue_manager_script = project_root / ".claude/queues/queue_manager.sh"
+        queue_file = project_root / ".claude/queues/task_queue.json"
+        logs_dir = project_root / ".claude/logs"
+
+        # Validate
+        script_valid = queue_manager_script.exists()
+        queue_valid = queue_file.exists()
+        logs_valid = logs_dir.exists()
+
+        # Update labels
+        self.project_root_label.config(
+            text=f"Project Root: {project_root} {'✓' if project_root.exists() else '✗'}",
+            foreground='green' if project_root.exists() else 'red'
+        )
+
+        self.queue_file_label.config(
+            text=f"Queue Manager: .claude/queues/queue_manager.sh {'✓ Found' if script_valid else '✗ Not Found'}",
+            foreground='green' if script_valid else 'red'
+        )
+
+        # Show optional status for queue file and logs
+        queue_status = '✓ Found' if queue_valid else '(will be created)'
+        logs_status = '✓ Found' if logs_valid else '(will be created)'
+
+        self.logs_dir_label.config(
+            text=f"Task Queue & Logs: {queue_status}, {logs_status}",
+            foreground='green' if (queue_valid and logs_valid) else 'gray'
+        )
+
+        # Enable connect if only the script is valid (queue file and logs can be created)
+        if script_valid:
+            self.connect_btn.config(state=tk.NORMAL)
+        else:
+            self.connect_btn.config(state=tk.DISABLED)
+
+    def connect(self):
+        # Return the path to queue_manager.sh, not just the project root
+        project_root = Path(self.path_var.get())
+        queue_manager_script = project_root / ".claude/queues/queue_manager.sh"
+        self.result = str(queue_manager_script)
+        self.dialog.destroy()
+
+    def cancel(self):
+        self.result = None
+        self.dialog.destroy()
+
+
+class CreateTaskDialog:
+    """Dialog for creating a new task."""
+
+    def __init__(self, parent, queue_interface):
+        self.queue = queue_interface
+        self.result = None
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Create New Task")
+        self.dialog.geometry("600x600")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        # Center on parent
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+        # Wait for dialog to close
+        self.dialog.wait_window()
+
+    def build_ui(self):
+        # Main frame
+        main_frame = ttk.Frame(self.dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title
+        ttk.Label(main_frame, text="Title: *").pack(anchor=tk.W)
+        self.title_var = tk.StringVar()
+        ttk.Entry(main_frame, textvariable=self.title_var).pack(fill=tk.X, pady=(0, 10))
+
+        # Agent
+        ttk.Label(main_frame, text="Agent: *").pack(anchor=tk.W)
+        self.agent_var = tk.StringVar()
+        agent_combo = ttk.Combobox(main_frame, textvariable=self.agent_var, state='readonly')
+
+        # Get agent list and debug
+        try:
+            agent_list = self.queue.get_agent_list()
+            print(f"DEBUG: Agent list: {agent_list}")
+            agent_combo['values'] = agent_list
+            if agent_combo['values']:
+                agent_combo.current(0)
+        except FileNotFoundError as e:
+            messagebox.showerror(
+                "Agents File Not Found",
+                f"Could not find agents.json file:\n\n{e}\n\n"
+                f"Expected location: {self.queue.project_root}/.claude/agents/agents.json"
+            )
+            self.dialog.destroy()
+            return
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load agents: {e}")
+            self.dialog.destroy()
+            return
+
+        agent_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Priority
+        ttk.Label(main_frame, text="Priority: *").pack(anchor=tk.W)
+        self.priority_var = tk.StringVar()
+        priority_combo = ttk.Combobox(main_frame, textvariable=self.priority_var, state='readonly')
+        priority_combo['values'] = self.queue.get_priorities()
+        priority_combo.current(1)  # Default to 'high'
+        priority_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Task Type
+        ttk.Label(main_frame, text="Task Type: *").pack(anchor=tk.W)
+        self.task_type_var = tk.StringVar()
+        task_type_combo = ttk.Combobox(main_frame, textvariable=self.task_type_var, state='readonly')
+        task_type_combo['values'] = self.queue.get_task_types()
+        task_type_combo.current(0)  # Default to 'analysis'
+        task_type_combo.pack(fill=tk.X, pady=(0, 10))
+
+        # Source File
+        ttk.Label(main_frame, text="Source File: *").pack(anchor=tk.W)
+
+        source_frame = ttk.Frame(main_frame)
+        source_frame.pack(fill=tk.X, pady=(0, 10))
+
+        self.source_var = tk.StringVar()
+        ttk.Entry(source_frame, textvariable=self.source_var).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        ttk.Button(source_frame, text="Browse...", command=self.browse_source).pack(side=tk.LEFT, padx=(5, 0))
+
+        # Description
+        ttk.Label(main_frame, text="Description: *").pack(anchor=tk.W)
+        self.description_text = tk.Text(main_frame, height=8, wrap=tk.WORD)
+        self.description_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+
+        # Required fields note
+        ttk.Label(main_frame, text="* Required fields", font=('Arial', 9), foreground='gray').pack(anchor=tk.W)
+
+        # Buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=10)
+
+        ttk.Button(button_frame, text="Create Task", command=self.create_task).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+
+    def browse_source(self):
+        filename = filedialog.askopenfilename(
+            parent=self.dialog,
+            title="Select Source File",
+            initialdir=str(self.queue.project_root),
+            filetypes=[
+                ("Markdown", "*.md"),
+                ("All Files", "*.*")
+            ]
+        )
+
+        if filename:
+            # Make relative to project root if possible
+            try:
+                rel_path = Path(filename).relative_to(self.queue.project_root)
+                self.source_var.set(str(rel_path))
+            except ValueError:
+                self.source_var.set(filename)
+
+    def create_task(self):
+        # Validate
+        title = self.title_var.get().strip()
+        agent = self.agent_var.get()
+        priority = self.priority_var.get()
+        task_type = self.task_type_var.get()
+        source_file = self.source_var.get().strip()
+        description = self.description_text.get('1.0', tk.END).strip()
+
+        if not all([title, agent, priority, task_type, source_file, description]):
+            messagebox.showwarning("Validation Error", "All fields are required.")
+            return
+
+        # Validate source file exists
+        source_path = Path(source_file)
+        if not source_path.is_absolute():
+            source_path = self.queue.project_root / source_path
+
+        if not source_path.exists():
+            messagebox.showerror("File Not Found", f"Source file does not exist: {source_file}")
+            return
+
+        # Create task
+        try:
+            task_id = self.queue.add_task(
+                title=title,
+                agent=agent,
+                priority=priority,
+                task_type=task_type,
+                source_file=source_file,
+                description=description
+            )
+            self.result = task_id
+            self.dialog.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to create task: {e}")
+
+    def cancel(self):
+        self.result = None
+        self.dialog.destroy()
+
+
+class TaskDetailsDialog:
+    """Dialog for viewing task details."""
+
+    def __init__(self, parent, task, queue_interface):
+        self.task = task
+        self.queue = queue_interface
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Task Details")
+        self.dialog.geometry("600x700")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+
+        # Center on parent
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+    def build_ui(self):
+        # Main frame with scrollbar
+        main_frame = ttk.Frame(self.dialog, padding=20)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Task ID with copy button
+        id_frame = ttk.Frame(main_frame)
+        id_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(id_frame, text=f"Task ID:", font=('Arial', 9, 'bold')).pack(side=tk.LEFT)
+        ttk.Label(id_frame, text=f"{self.task.id}").pack(side=tk.LEFT, padx=(10, 0))
+        ttk.Button(id_frame, text="Copy ID", command=self.copy_id).pack(side=tk.RIGHT)
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Other fields
+        fields = [
+            ("Title", self.task.title),
+            ("Agent", self.task.assigned_agent),
+            ("Status", f"● {self.task.status}"),
+            ("Priority", self.task.priority),
+            ("Type", self.task.task_type),
+            ("Created", self.task.created),
+            ("Started", self.task.started or "(not started)"),
+            ("Completed", self.task.completed or "(not completed)"),
+        ]
+
+        for label, value in fields:
+            frame = ttk.Frame(main_frame)
+            frame.pack(fill=tk.X, pady=2)
+            ttk.Label(frame, text=f"{label}:", font=('Arial', 9, 'bold'), width=15).pack(side=tk.LEFT)
+            ttk.Label(frame, text=str(value)).pack(side=tk.LEFT)
+
+        # Source file with open button
+        source_frame = ttk.Frame(main_frame)
+        source_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(source_frame, text="Source File:", font=('Arial', 9, 'bold'), width=15).pack(side=tk.LEFT)
+        ttk.Label(source_frame, text=self.task.source_file, wraplength=350).pack(side=tk.LEFT)
+        ttk.Button(source_frame, text="Open File", command=self.open_file).pack(side=tk.RIGHT)
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+
+        # Description
+        ttk.Label(main_frame, text="Description:", font=('Arial', 9, 'bold')).pack(anchor=tk.W)
+        desc_frame = ttk.Frame(main_frame)
+        desc_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        desc_text = tk.Text(desc_frame, height=10, wrap=tk.WORD, state=tk.NORMAL)
+        desc_scrollbar = ttk.Scrollbar(desc_frame, command=desc_text.yview)
+        desc_text.configure(yscrollcommand=desc_scrollbar.set)
+
+        desc_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        desc_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        desc_text.insert('1.0', self.task.description)
+        desc_text.config(state=tk.DISABLED)
+
+        # Result (if completed/failed)
+        if self.task.result:
+            ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+            ttk.Label(main_frame, text="Result:", font=('Arial', 9, 'bold')).pack(anchor=tk.W)
+            result_label = ttk.Label(main_frame, text=self.task.result, wraplength=550)
+            result_label.pack(anchor=tk.W, pady=5)
+
+        # Buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(pady=10)
+
+        if self.queue.task_log_exists(self.task.id, self.task.source_file):
+            ttk.Button(button_frame, text="View Log", command=self.view_log).pack(side=tk.LEFT, padx=5)
+
+        ttk.Button(button_frame, text="Close", command=self.close).pack(side=tk.LEFT, padx=5)
+
+    def copy_id(self):
+        self.dialog.clipboard_clear()
+        self.dialog.clipboard_append(self.task.id)
+        messagebox.showinfo("Copied", "Task ID copied to clipboard")
+
+    def open_file(self):
+        import subprocess
+        import sys
+
+        source_path = Path(self.task.source_file)
+        if not source_path.is_absolute():
+            source_path = self.queue.project_root / source_path
+
+        if not source_path.exists():
+            messagebox.showerror("Error", f"File not found: {source_path}")
+            return
+
+        # Open file with default application
+        if sys.platform == 'darwin':
+            subprocess.run(['open', str(source_path)])
+        elif sys.platform == 'win32':
+            subprocess.run(['start', str(source_path)], shell=True)
+        else:
+            subprocess.run(['xdg-open', str(source_path)])
+
+    def view_log(self):
+        log_content = self.queue.get_task_log(self.task.id, self.task.source_file)
+        if log_content:
+            # Create log viewer
+            log_window = tk.Toplevel(self.dialog)
+            log_window.title(f"Task Log: {self.task.id}")
+            log_window.geometry("800x600")
+
+            text_frame = ttk.Frame(log_window, padding=10)
+            text_frame.pack(fill=tk.BOTH, expand=True)
+
+            text_widget = tk.Text(text_frame, wrap=tk.NONE, font=('Courier', 10))
+            scrollbar_y = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+            scrollbar_x = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=text_widget.xview)
+            text_widget.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
+            text_widget.grid(row=0, column=0, sticky='nsew')
+            scrollbar_y.grid(row=0, column=1, sticky='ns')
+            scrollbar_x.grid(row=1, column=0, sticky='ew')
+
+            text_frame.columnconfigure(0, weight=1)
+            text_frame.rowconfigure(0, weight=1)
+
+            text_widget.insert('1.0', log_content)
+            text_widget.config(state=tk.DISABLED)
+
+            ttk.Button(log_window, text="Close", command=log_window.destroy).pack(pady=10)
+
+    def close(self):
+        self.dialog.destroy()
+
+
+class OperationsLogDialog:
+    """Dialog for viewing operations log."""
+
+    def __init__(self, parent, queue_interface):
+        self.queue = queue_interface
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Queue Operations Log")
+        self.dialog.geometry("900x600")
+        self.dialog.transient(parent)
+
+        # Center on parent
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+        self.load_log()
+
+    def build_ui(self):
+        # Header
+        header_frame = ttk.Frame(self.dialog, padding=10)
+        header_frame.pack(fill=tk.X)
+
+        ttk.Label(header_frame, text="Log File: .claude/logs/queue_operations.log").pack(side=tk.LEFT)
+        ttk.Button(header_frame, text="Refresh", command=self.load_log).pack(side=tk.RIGHT)
+
+        # Log text
+        text_frame = ttk.Frame(self.dialog, padding=10)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.text_widget = tk.Text(text_frame, wrap=tk.NONE, font=('Courier', 9))
+        scrollbar_y = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.text_widget.yview)
+        scrollbar_x = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=self.text_widget.xview)
+        self.text_widget.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
+
+        self.text_widget.grid(row=0, column=0, sticky='nsew')
+        scrollbar_y.grid(row=0, column=1, sticky='ns')
+        scrollbar_x.grid(row=1, column=0, sticky='ew')
+
+        text_frame.columnconfigure(0, weight=1)
+        text_frame.rowconfigure(0, weight=1)
+
+        # Footer
+        footer_frame = ttk.Frame(self.dialog, padding=10)
+        footer_frame.pack(fill=tk.X)
+
+        self.status_label = ttk.Label(footer_frame, text="")
+        self.status_label.pack(side=tk.LEFT)
+
+        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side=tk.RIGHT)
+
+    def load_log(self):
+        self.text_widget.config(state=tk.NORMAL)
+        self.text_widget.delete('1.0', tk.END)
+
+        try:
+            log_content = self.queue.get_operations_log(max_lines=1000)
+            self.text_widget.insert('1.0', log_content)
+
+            # Auto-scroll to bottom
+            self.text_widget.see(tk.END)
+
+            # Update status
+            lines = log_content.count('\n')
+            self.status_label.config(text=f"Showing last {lines} lines")
+
+        except Exception as e:
+            self.text_widget.insert('1.0', f"Error loading log: {e}")
+            self.status_label.config(text="Error")
+
+        self.text_widget.config(state=tk.DISABLED)
+
+
+class AboutDialog:
+    """About dialog."""
+
+    def __init__(self, parent):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("About")
+        self.dialog.geometry("500x400")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        self.dialog.resizable(False, False)
+
+        # Center on parent
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+
+        self.build_ui()
+
+    def build_ui(self):
+        main_frame = ttk.Frame(self.dialog, padding=30)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Icon/Title
+        ttk.Label(
+            main_frame,
+            text="📋 Task Queue Manager",
+            font=('Arial', 16, 'bold')
+        ).pack(pady=10)
+
+        ttk.Label(
+            main_frame,
+            text=f"Version {Config.VERSION}",
+            font=('Arial', 12)
+        ).pack(pady=5)
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+
+        # Description
+        desc_text = (
+            "A graphical interface for managing multi-agent\n"
+            "development workflows using Claude Code.\n\n"
+            "Part of the Claude Multi-Agent Development Template"
+        )
+        ttk.Label(
+            main_frame,
+            text=desc_text,
+            justify=tk.CENTER,
+            font=('Arial', 10)
+        ).pack(pady=10)
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+
+        # Credits
+        ttk.Label(
+            main_frame,
+            text="Built with Python and Tkinter",
+            font=('Arial', 9)
+        ).pack(pady=5)
+
+        ttk.Label(
+            main_frame,
+            text="© 2025 Claude Multi-Agent Template Project",
+            font=('Arial', 9),
+            foreground='gray'
+        ).pack(pady=5)
+
+        # Close button
+        ttk.Button(
+            main_frame,
+            text="Close",
+            command=self.dialog.destroy
+        ).pack(pady=20)
