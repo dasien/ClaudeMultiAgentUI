@@ -205,47 +205,67 @@ class QueueInterface:
             self._run_command("fail", task_id)
 
     def get_queue_state(self) -> QueueState:
-        """Get current queue state by reading JSON directly.
+        """Get current queue state using list_tasks command.
 
         Returns:
             QueueState object
         """
-        with open(self.queue_file, 'r') as f:
-            data = json.load(f)
+        # Call list_tasks command
+        output = self._run_command("list_tasks", "all", "compact")
+        data = json.loads(output)
 
         # Helper to parse tasks with defaults for missing fields
         def parse_task(task_data: dict) -> Task:
-            # Provide defaults for fields that may be missing in older tasks
+            # Convert runtime_seconds to Unix timestamps for display compatibility
+            # Note: start_datetime and end_datetime are derived from ISO strings if needed
+            from datetime import datetime
+
+            start_datetime = None
+            end_datetime = None
+
+            if task_data.get('started'):
+                try:
+                    start_dt = datetime.fromisoformat(task_data['started'].replace('Z', '+00:00'))
+                    start_datetime = int(start_dt.timestamp())
+                except (ValueError, AttributeError):
+                    pass
+
+            if task_data.get('completed'):
+                try:
+                    end_dt = datetime.fromisoformat(task_data['completed'].replace('Z', '+00:00'))
+                    end_datetime = int(end_dt.timestamp())
+                except (ValueError, AttributeError):
+                    pass
+
             return Task(
                 id=task_data['id'],
                 title=task_data['title'],
                 assigned_agent=task_data['assigned_agent'],
                 priority=task_data['priority'],
                 task_type=task_data.get('task_type', 'unknown'),
-                description=task_data['description'],
+                description=task_data.get('description', ''),
                 source_file=task_data.get('source_file', ''),
                 created=task_data['created'],
                 status=task_data['status'],
                 started=task_data.get('started'),
                 completed=task_data.get('completed'),
-                result=task_data.get('result')
+                result=task_data.get('result'),
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                runtime_seconds=task_data.get('runtime_seconds'),
+                auto_complete=task_data.get('auto_complete', False),
+                auto_chain=task_data.get('auto_chain', False),
+                metadata=task_data.get('metadata')
             )
 
-        # Parse tasks
-        pending_tasks = [parse_task(task) for task in data.get('pending_tasks', [])]
-        active_workflows = [parse_task(task) for task in data.get('active_workflows', [])]
-        completed_tasks = [parse_task(task) for task in data.get('completed_tasks', [])]
-        failed_tasks = [parse_task(task) for task in data.get('failed_tasks', [])]
+        # Parse tasks from list_tasks output format
+        pending_tasks = [parse_task(task) for task in data.get('pending', [])]
+        active_workflows = [parse_task(task) for task in data.get('active', [])]
+        completed_tasks = [parse_task(task) for task in data.get('completed', [])]
+        failed_tasks = [parse_task(task) for task in data.get('failed', [])]
 
-        # Parse agent status
+        # Note: list_tasks doesn't provide agent_status, so we keep it empty
         agent_status = {}
-        for agent_name, status_data in data.get('agent_status', {}).items():
-            agent_status[agent_name] = AgentStatus(
-                name=agent_name,
-                status=status_data.get('status', 'unknown'),
-                current_task=status_data.get('current_task'),
-                last_activity=status_data.get('last_activity')
-            )
 
         return QueueState(
             pending_tasks=pending_tasks,

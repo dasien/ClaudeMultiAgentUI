@@ -156,8 +156,8 @@ class TaskQueueUI:
         tree_frame = ttk.Frame(label_frame)
         tree_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Columns: Task ID, Title, Agent, Status
-        columns = ('task_id', 'title', 'agent', 'status')
+        # Columns: Task ID, Title, Agent, Status, Start Date, End Date, Runtime
+        columns = ('task_id', 'title', 'agent', 'status', 'start_date', 'end_date', 'runtime')
         self.task_tree = ttk.Treeview(
             tree_frame,
             columns=columns,
@@ -170,11 +170,17 @@ class TaskQueueUI:
         self.task_tree.heading('title', text='Title', command=lambda: self.sort_by('title'))
         self.task_tree.heading('agent', text='Agent', command=lambda: self.sort_by('agent'))
         self.task_tree.heading('status', text='Status', command=lambda: self.sort_by('status'))
+        self.task_tree.heading('start_date', text='Start Date', command=lambda: self.sort_by('start_date'))
+        self.task_tree.heading('end_date', text='End Date', command=lambda: self.sort_by('end_date'))
+        self.task_tree.heading('runtime', text='Runtime', command=lambda: self.sort_by('runtime'))
 
         self.task_tree.column('task_id', width=180, minwidth=120)
-        self.task_tree.column('title', width=400, minwidth=200)
-        self.task_tree.column('agent', width=180, minwidth=120)
+        self.task_tree.column('title', width=300, minwidth=200)
+        self.task_tree.column('agent', width=150, minwidth=120)
         self.task_tree.column('status', width=100, minwidth=80)
+        self.task_tree.column('start_date', width=150, minwidth=120)
+        self.task_tree.column('end_date', width=150, minwidth=120)
+        self.task_tree.column('runtime', width=100, minwidth=80)
 
         # Scrollbars
         vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.task_tree.yview)
@@ -363,11 +369,20 @@ class TaskQueueUI:
             for task in all_tasks:
                 status_display = self.get_status_display(task.status)
                 tag = task.status.lower()
+                runtime_display = self.format_runtime(task.runtime_seconds)
 
                 self.task_tree.insert(
                     '',
                     tk.END,
-                    values=(task.id, task.title, task.assigned_agent, status_display),
+                    values=(
+                        task.id,
+                        task.title,
+                        task.assigned_agent,
+                        status_display,
+                        task.started or '',
+                        task.completed or '',
+                        runtime_display
+                    ),
                     tags=(tag,)
                 )
 
@@ -395,6 +410,25 @@ class TaskQueueUI:
             'failed': 'Failed'
         }
         return status_map.get(status.lower(), status.capitalize())
+
+    def format_runtime(self, runtime_seconds):
+        """Format runtime seconds into human-readable string."""
+        if runtime_seconds is None:
+            return ''
+
+        # Convert to integer if it's not already
+        seconds = int(runtime_seconds)
+
+        if seconds < 60:
+            return f"{seconds}s"
+        elif seconds < 3600:
+            minutes = seconds // 60
+            secs = seconds % 60
+            return f"{minutes}m {secs}s"
+        else:
+            hours = seconds // 3600
+            minutes = (seconds % 3600) // 60
+            return f"{hours}h {minutes}m"
 
     def toggle_auto_refresh(self):
         """Toggle auto-refresh on/off."""

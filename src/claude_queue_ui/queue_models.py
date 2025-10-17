@@ -30,6 +30,12 @@ class Task:
     started: Optional[str] = None
     completed: Optional[str] = None
     result: Optional[str] = None
+    start_datetime: Optional[int] = None  # Unix timestamp
+    end_datetime: Optional[int] = None    # Unix timestamp
+    runtime_seconds: Optional[int] = None
+    auto_complete: bool = False
+    auto_chain: bool = False
+    metadata: Optional[dict] = None
 
 
 @dataclass

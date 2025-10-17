@@ -44,6 +44,21 @@ class TaskDetailsDialog:
 
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
 
+        # Format runtime for display
+        runtime_display = "(not available)"
+        if self.task.runtime_seconds:
+            seconds = int(self.task.runtime_seconds)
+            if seconds < 60:
+                runtime_display = f"{seconds}s"
+            elif seconds < 3600:
+                minutes = seconds // 60
+                secs = seconds % 60
+                runtime_display = f"{minutes}m {secs}s"
+            else:
+                hours = seconds // 3600
+                minutes = (seconds % 3600) // 60
+                runtime_display = f"{hours}h {minutes}m"
+
         # Other fields
         fields = [
             ("Title", self.task.title),
@@ -54,6 +69,7 @@ class TaskDetailsDialog:
             ("Created", self.task.created),
             ("Started", self.task.started or "(not started)"),
             ("Completed", self.task.completed or "(not completed)"),
+            ("Runtime", runtime_display),
         ]
 
         for label, value in fields:
