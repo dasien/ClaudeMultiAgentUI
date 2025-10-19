@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional
 
-from .queue_models import Task, AgentStatus, QueueState
+from .models import Task, AgentStatus, QueueState
 
 
 class QueueInterface:
@@ -29,6 +29,7 @@ class QueueInterface:
         self.queue_file = self.project_root / ".claude/queues/task_queue.json"
         self.logs_dir = self.project_root / ".claude/logs"
         self.agents_file = self.project_root / ".claude/agents/agents.json"
+        self.tools_file = self.project_root / ".claude/tools/tools.json"
 
         # Validate paths
         if not self.queue_file.exists():
@@ -414,3 +415,15 @@ class QueueInterface:
 
         # Return last N lines
         return ''.join(lines[-max_lines:])
+
+    def get_tools_data(self) -> Optional[Dict]:
+        """Get tools configuration data from tools.json.
+
+        Returns:
+            Dictionary containing claude_code_tools and agent_personas, or None if not found
+        """
+        if not self.tools_file.exists():
+            return None
+
+        with open(self.tools_file, 'r') as f:
+            return json.load(f)

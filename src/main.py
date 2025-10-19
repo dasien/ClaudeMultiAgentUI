@@ -12,13 +12,14 @@ from enum import Enum
 from typing import Optional
 
 from .queue_interface import QueueInterface
-from .queue_models import ConnectionState, QueueUIState
+from .models import ConnectionState, QueueUIState
 from .dialogs import (
     ConnectDialog,
     CreateTaskDialog,
     TaskDetailsDialog,
     OperationsLogDialog,
-    AboutDialog
+    AboutDialog,
+    AgentManagerDialog
 )
 from .config import Config
 from .settings import Settings
@@ -91,6 +92,14 @@ class TaskQueueUI:
             label="View Operations Log",
             command=self.show_operations_log,
             accelerator="Ctrl+L"
+        )
+
+        # Agents menu
+        agents_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Agents", menu=agents_menu)
+        agents_menu.add_command(
+            label="Manage Agents...",
+            command=self.show_agent_manager
         )
 
         # Settings menu
@@ -724,6 +733,14 @@ class TaskQueueUI:
     def show_about_dialog(self):
         """Show about dialog."""
         AboutDialog(self.root)
+
+    def show_agent_manager(self):
+        """Show agent manager dialog."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect to a queue manager first.")
+            return
+
+        AgentManagerDialog(self.root, self.queue, self.settings)
 
     def sort_by(self, column):
         """Sort table by column."""

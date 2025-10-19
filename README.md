@@ -50,8 +50,8 @@ Double-click any task to view complete details including description, timestamps
 git clone https://github.com/yourusername/ClaudeMultiAgentUI.git
 cd ClaudeMultiAgentUI
 
-# Run directly 
-python -m src.claude_queue_ui.main
+# Run directly
+python -m src.main
 ```
 
 ## Usage
@@ -59,7 +59,7 @@ python -m src.claude_queue_ui.main
 ### 1. Launch the Application
 
 ```bash
-python -m src.claude_queue_ui.main
+python -m src.main
 ```
 
 ### 2. Connect to a Queue Manager
@@ -161,15 +161,26 @@ python -m src.claude_queue_ui.main
 ```
 ClaudeMultiAgentUI/
 ├── src/
-│   └── claude_queue_ui/
+│   ├── __init__.py
+│   ├── main.py             # Main application
+│   ├── config.py           # Configuration
+│   ├── queue_interface.py  # Queue manager interface
+│   ├── settings.py         # Settings management
+│   ├── models/             # Data models
+│   │   ├── __init__.py
+│   │   ├── task.py
+│   │   ├── agent.py
+│   │   ├── tool.py
+│   │   ├── agent_persona.py
+│   │   └── ...
+│   └── dialogs/            # Dialog windows
 │       ├── __init__.py
-│       ├── main.py           # Main application
-│       ├── config.py          # Configuration
-│       ├── queue_interface.py # Queue manager interface
-│       ├── queue_models.py    # Data models
-│       └── dialogs.py         # Dialog windows
-├── tests/                     # Unit tests
-├── assets/                    # Images, icons
+│       ├── connect_dialog.py
+│       ├── create_task_dialog.py
+│       ├── agent_manager_dialog.py
+│       └── ...
+├── tests/                  # Unit tests
+├── assets/                 # Images, icons
 ├── README.md
 ├── requirements.txt
 ├── setup.py
@@ -178,7 +189,7 @@ ClaudeMultiAgentUI/
 
 ## Configuration
 
-The application uses sensible defaults but can be customized by editing `src/claude_queue_ui/config.py`:
+The application uses sensible defaults but can be customized by editing `src/config.py`:
 
 - **Auto-refresh interval** - Default: 3 seconds
 - **Max log lines** - Default: 1000 lines
