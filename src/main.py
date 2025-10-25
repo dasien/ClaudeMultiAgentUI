@@ -85,6 +85,26 @@ class TaskQueueUI:
             accelerator="Ctrl+Q"
         )
 
+        # Tasks menu
+        tasks_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Tasks", menu=tasks_menu)
+        tasks_menu.add_command(
+            label="Create Task...",
+            command=self.create_task,
+            accelerator="Ctrl+N"
+        )
+        tasks_menu.add_separator()
+        tasks_menu.add_command(
+            label="Cancel All Tasks",
+            command=self.cancel_all_tasks
+        )
+        tasks_menu.add_separator()
+        tasks_menu.add_command(
+            label="Refresh List",
+            command=self.refresh,
+            accelerator="F5"
+        )
+
         # Logs menu
         logs_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Logs", menu=logs_menu)

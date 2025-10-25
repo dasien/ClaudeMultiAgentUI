@@ -1,17 +1,19 @@
 """
 Queue interface for communicating with the queue_manager.sh script.
+Enhanced for v2.0 with contract and state awareness.
 """
 
 import json
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional
+import re
 
 from .models import Task, AgentStatus, QueueState
 
 
 class QueueInterface:
-    """Interface to the queue_manager.sh bash script."""
+    """Interface to the queue_manager.sh bash script with v2.0 contract support."""
 
     def __init__(self, queue_script_path: str):
         """Initialize the queue interface.
@@ -30,6 +32,8 @@ class QueueInterface:
         self.logs_dir = self.project_root / ".claude/logs"
         self.agents_file = self.project_root / ".claude/agents/agents.json"
         self.tools_file = self.project_root / ".claude/tools/tools.json"
+        self.contracts_file = self.project_root / ".claude/AGENT_CONTRACTS.json"
+        self.states_file = self.project_root / ".claude/WORKFLOW_STATES.json"
 
         # Validate paths
         if not self.queue_file.exists():
@@ -96,18 +100,7 @@ class QueueInterface:
                  auto_complete: bool = False, auto_chain: bool = False) -> str:
         """Add a new task to the queue.
 
-        Args:
-            title: Task title
-            agent: Agent name
-            priority: Task priority (critical, high, normal, low)
-            task_type: Task type (analysis, technical_analysis, implementation, testing)
-            source_file: Source file path
-            description: Task description
-            auto_complete: Whether to enable auto-completion
-            auto_chain: Whether to enable auto-chaining
-
-        Returns:
-            Task ID
+        UPDATED: Now accepts auto_complete and auto_chain parameters
         """
         args = [
             "add",
@@ -121,18 +114,7 @@ class QueueInterface:
             "true" if auto_chain else "false"
         ]
 
-        # Debug output
-        import sys
-        debug_msg = f"DEBUG: add_task called with auto_complete={auto_complete}, auto_chain={auto_chain}"
-        print(debug_msg, file=sys.stderr)
-        print(debug_msg)
-        cmd_msg = f"DEBUG: Command: {self.script_path} {' '.join(repr(arg) for arg in args)}"
-        print(cmd_msg, file=sys.stderr)
-        print(cmd_msg)
-
         output = self._run_command(*args)
-
-        # Extract task ID from output (last line should be task ID)
         return output.strip().split('\n')[-1]
 
     def start_task(self, task_id: str, auto_complete: bool = False, auto_chain: bool = False) -> subprocess.Popen:
@@ -204,6 +186,36 @@ class QueueInterface:
             self._run_command("fail", task_id, error)
         else:
             self._run_command("fail", task_id)
+
+    def add_integration_task(self, workflow_status: str, source_file: str,
+                             previous_agent: str, parent_task_id: str = "") -> str:
+        """Add an integration task for external system sync."""
+        args = ["add-integration", workflow_status, source_file, previous_agent]
+        if parent_task_id:
+            args.append(parent_task_id)
+
+        output = self._run_command(*args)
+        return output.strip()
+
+    def validate_agent_outputs(self, agent: str, enhancement_dir: str) -> bool:
+        """Validate agent outputs against contract."""
+        try:
+            self._run_command("validate_agent_outputs", agent, enhancement_dir)
+            return True
+        except RuntimeError:
+            return False
+
+    def sync_external(self, task_id: str):
+        """Create integration task for specific completed task."""
+        self._run_command("sync-external", task_id)
+
+    def sync_all(self):
+        """Create integration tasks for all unsynced completed tasks."""
+        self._run_command("sync-all")
+
+    def update_metadata(self, task_id: str, key: str, value: str):
+        """Update task metadata."""
+        self._run_command("update-metadata", task_id, key, value)
 
     def get_queue_state(self) -> QueueState:
         """Get current queue state using list_tasks command.
@@ -292,38 +304,40 @@ class QueueInterface:
             data = json.load(f)
 
         print(f"DEBUG: agents.json data type: {type(data)}")
-        print(f"DEBUG: agents.json data: {data}")
+        print(f"DEBUG: agents.json keys: {data.keys() if isinstance(data, dict) else 'not a dict'}")
 
         result = {}
 
-        # agents.json format may vary - adjust as needed
-        if isinstance(data, list):
-            # Handle list of dicts with agent-file and name
-            for agent in data:
-                if isinstance(agent, dict):
-                    agent_file = agent.get('agent-file')
-                    name = agent.get('name')
-                    if agent_file and name:
-                        result[agent_file] = name
-                    else:
-                        # Fallback for older format
-                        name = agent.get('Name') or agent.get('name') or str(agent)
-                        result[name] = name
-                else:
-                    # Simple string format
-                    result[str(agent)] = str(agent)
-        elif isinstance(data, dict):
-            # Iterate over dictionary values to get agent names
-            for agent in data.get('agents', []):
-                if isinstance(agent, dict):
-                    agent_file = agent.get('agent-file')
-                    name = agent.get('name')
-                    if agent_file and name:
-                        result[agent_file] = name
-                    elif name:
-                        result[name] = name
+        # Determine the agents list based on structure
+        agents_list = []
+
+        if isinstance(data, dict):
+            # Structure: {"agents": [...]}
+            agents_list = data.get('agents', [])
+        elif isinstance(data, list):
+            # Structure: [...]
+            agents_list = data
+        else:
+            print(f"ERROR: Unexpected agents.json format: {type(data)}")
+            return result
+
+        # Parse each agent
+        for agent in agents_list:
+            if not isinstance(agent, dict):
+                # Skip non-dict items
+                continue
+
+            agent_file = agent.get('agent-file')
+            name = agent.get('name')
+
+            if agent_file and name:
+                result[agent_file] = name
 
         print(f"DEBUG: Parsed agents map: {result}")
+
+        if not result:
+            print("WARNING: No agents found in agents.json")
+
         return result
 
     def get_task_types(self) -> Dict[str, str]:
@@ -336,7 +350,9 @@ class QueueInterface:
             "analysis": "Analysis",
             "technical_analysis": "Technical Analysis",
             "implementation": "Implementation",
-            "testing": "Testing"
+            "testing": "Testing",
+            "documentation": "Documentation",
+            "integration": "Integration"
         }
 
     def get_priorities(self) -> List[str]:
@@ -346,10 +362,10 @@ class QueueInterface:
             List of priority names
         """
         return [
-            "Critical",
-            "High",
-            "Normal",
-            "Low"
+            "critical",
+            "high",
+            "normal",
+            "low"
         ]
 
     def get_task_log(self, task_id: str, source_file: str) -> Optional[str]:
@@ -362,12 +378,13 @@ class QueueInterface:
         Returns:
             Log content or None if not found
         """
-        # Determine log directory from source file
-        source_path = Path(source_file)
-        if not source_path.is_absolute():
-            source_path = self.project_root / source_path
+        # Extract enhancement name from source file
+        enhancement_name = self._extract_enhancement_name(source_file)
+        if not enhancement_name:
+            return None
 
-        log_dir = source_path.parent / "logs"
+        # Look in enhancement logs directory
+        log_dir = self.project_root / "enhancements" / enhancement_name / "logs"
 
         if not log_dir.exists():
             return None
@@ -427,3 +444,300 @@ class QueueInterface:
 
         with open(self.tools_file, 'r') as f:
             return json.load(f)
+
+    # =========================================================================
+    # V2.0 CONTRACT AND STATE METHODS
+    # =========================================================================
+
+    def get_agent_contracts(self) -> Optional[dict]:
+        """Load AGENT_CONTRACTS.json.
+
+        Returns:
+            Dictionary containing agent contracts, or None if not found
+        """
+        if not self.contracts_file.exists():
+            return None
+
+        try:
+            with open(self.contracts_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return None
+
+    def get_workflow_states(self) -> Optional[dict]:
+        """Load WORKFLOW_STATES.json.
+
+        Returns:
+            Dictionary containing workflow states, or None if not found
+        """
+        if not self.states_file.exists():
+            return None
+
+        try:
+            with open(self.states_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return None
+
+    def get_agent_contract(self, agent: str) -> Optional[dict]:
+        """Get contract for specific agent.
+
+        Args:
+            agent: Agent name (agent-file key)
+
+        Returns:
+            Agent contract dictionary or None if not found
+        """
+        contracts = self.get_agent_contracts()
+        if not contracts:
+            return None
+
+        return contracts.get('agents', {}).get(agent)
+
+    def validate_source_file_pattern(self, agent: str, source_file: str) -> tuple[bool, str]:
+        """Validate that source file matches agent's expected input pattern.
+
+        Args:
+            agent: Agent name
+            source_file: Source file path
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return True, "No contract found (validation skipped)"
+
+        required_inputs = contract.get('inputs', {}).get('required', [])
+        if not required_inputs:
+            return True, "No input pattern specified in contract"
+
+        # Get first required input pattern
+        pattern = required_inputs[0].get('pattern', '')
+        if not pattern:
+            return True, "No pattern specified"
+
+        # Convert pattern to regex
+        # Replace {enhancement_name} with regex pattern
+        regex_pattern = pattern.replace('{enhancement_name}', r'([^/]+)')
+        regex_pattern = f"^{regex_pattern}$"
+
+        # Test if source file matches
+        if re.match(regex_pattern, source_file):
+            return True, f"✓ Matches pattern: {pattern}"
+        else:
+            return False, f"✗ Expected pattern: {pattern}"
+
+    def get_agent_expected_outputs(self, agent: str) -> Optional[dict]:
+        """Get expected outputs for an agent from contract.
+
+        Args:
+            agent: Agent name
+
+        Returns:
+            Dictionary with root_document, output_directory, additional_required
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return None
+
+        return contract.get('outputs', {})
+
+    def get_agent_success_statuses(self, agent: str) -> List[dict]:
+        """Get success statuses for an agent.
+
+        Args:
+            agent: Agent name
+
+        Returns:
+            List of success status dictionaries
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return []
+
+        return contract.get('statuses', {}).get('success', [])
+
+    def get_next_agents(self, agent: str, status: str) -> List[str]:
+        """Get next agents based on current agent and status.
+
+        Args:
+            agent: Current agent name
+            status: Completion status
+
+        Returns:
+            List of next agent names
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return []
+
+        success_statuses = contract.get('statuses', {}).get('success', [])
+        for status_def in success_statuses:
+            if status_def.get('code') == status:
+                return status_def.get('next_agents', [])
+
+        return []
+
+    def validate_agent_outputs(self, agent: str, source_file: str) -> tuple[bool, List[str]]:
+        """Validate that agent created required outputs.
+
+        Args:
+            agent: Agent name
+            source_file: Source file (to determine enhancement directory)
+
+        Returns:
+            Tuple of (all_valid, list of validation messages)
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return True, ["No contract found (validation skipped)"]
+
+        # Extract enhancement name and build paths
+        enhancement_name = self._extract_enhancement_name(source_file)
+        if not enhancement_name:
+            return False, ["Cannot determine enhancement name from source file"]
+
+        enhancement_dir = self.project_root / "enhancements" / enhancement_name
+
+        outputs = contract.get('outputs', {})
+        output_directory = outputs.get('output_directory', '')
+        root_document = outputs.get('root_document', '')
+        additional_required = outputs.get('additional_required', [])
+
+        messages = []
+        all_valid = True
+
+        # Check root document
+        root_path = enhancement_dir / output_directory / root_document
+        if root_path.exists():
+            messages.append(f"✓ Root document exists: {output_directory}/{root_document}")
+        else:
+            messages.append(f"✗ Root document missing: {output_directory}/{root_document}")
+            all_valid = False
+
+        # Check additional required files
+        for req_file in additional_required:
+            file_path = enhancement_dir / output_directory / req_file
+            if file_path.exists():
+                messages.append(f"✓ Required file exists: {req_file}")
+            else:
+                messages.append(f"✗ Required file missing: {req_file}")
+                all_valid = False
+
+        # Check metadata header if required
+        if contract.get('metadata_required', False) and root_path.exists():
+            has_header, header_msg = self._check_metadata_header(root_path)
+            messages.append(header_msg)
+            if not has_header:
+                all_valid = False
+
+        return all_valid, messages
+
+    def _check_metadata_header(self, file_path: Path) -> tuple[bool, str]:
+        """Check if file has required metadata header.
+
+        Args:
+            file_path: Path to file
+
+        Returns:
+            Tuple of (has_header, message)
+        """
+        try:
+            with open(file_path, 'r') as f:
+                content = f.read(500)  # Read first 500 chars
+
+            # Check for YAML frontmatter
+            if not content.startswith('---'):
+                return False, "✗ Missing YAML frontmatter (---)"
+
+            # Check for required fields
+            required_fields = ['enhancement:', 'agent:', 'task_id:', 'timestamp:', 'status:']
+            missing_fields = []
+
+            for field in required_fields:
+                if field not in content:
+                    missing_fields.append(field.rstrip(':'))
+
+            if missing_fields:
+                return False, f"✗ Metadata missing fields: {', '.join(missing_fields)}"
+
+            return True, "✓ Metadata header valid (5 required fields)"
+
+        except IOError:
+            return False, "✗ Could not read file"
+
+    def _extract_enhancement_name(self, source_file: str) -> Optional[str]:
+        """Extract enhancement name from source file path.
+
+        Args:
+            source_file: Source file path
+
+        Returns:
+            Enhancement name or None
+        """
+        # Pattern: enhancements/{enhancement_name}/...
+        match = re.match(r'^enhancements/([^/]+)/', source_file)
+        if match:
+            return match.group(1)
+        return None
+
+    def get_expected_output_path(self, agent: str, source_file: str) -> Optional[str]:
+        """Get the expected output path for an agent based on source file.
+
+        Args:
+            agent: Agent name
+            source_file: Source file path
+
+        Returns:
+            Expected output path or None
+        """
+        contract = self.get_agent_contract(agent)
+        if not contract:
+            return None
+
+        enhancement_name = self._extract_enhancement_name(source_file)
+        if not enhancement_name:
+            return None
+
+        outputs = contract.get('outputs', {})
+        output_dir = outputs.get('output_directory', '')
+        root_doc = outputs.get('root_document', '')
+
+        return f"enhancements/{enhancement_name}/{output_dir}/{root_doc}"
+
+    def get_metadata_requirements(self) -> List[str]:
+        """Get list of required metadata header fields.
+
+        Returns:
+            List of required field names
+        """
+        contracts = self.get_agent_contracts()
+        if not contracts:
+            return ['enhancement', 'agent', 'task_id', 'timestamp', 'status']
+
+        # Return from contracts if available
+        metadata_fields = contracts.get('metadata_fields', {})
+        return [field for field, spec in metadata_fields.items() if spec.get('required', False)]
+
+    def is_v2_compatible(self) -> bool:
+        """Check if the connected project is v2.0 compatible.
+
+        Returns:
+            True if AGENT_CONTRACTS.json exists
+        """
+        return self.contracts_file.exists()
+
+    def get_system_version(self) -> str:
+        """Get the multi-agent system version.
+
+        Returns:
+            Version string (e.g., "2.0.0" or "1.0")
+        """
+        if self.contracts_file.exists():
+            try:
+                contracts = self.get_agent_contracts()
+                return contracts.get('version', '2.0.0')
+            except:
+                return "2.0.0"
+        return "1.0"
