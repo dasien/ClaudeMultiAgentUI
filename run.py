@@ -16,7 +16,7 @@ src_path = Path(__file__).parent / "src"
 sys.path.insert(0, str(src_path))
 
 # Run the application
-from claude_queue_ui.main import main
+from src import main
 
 if __name__ == "__main__":
     main()

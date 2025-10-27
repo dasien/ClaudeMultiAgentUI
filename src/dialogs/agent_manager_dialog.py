@@ -88,8 +88,23 @@ class AgentManagerDialog:
             with open(self.agents_file, 'r') as f:
                 data = json.load(f)
 
-            agents = data.get('agents', [])
+            # Debug: Check what we loaded
+            if not isinstance(data, dict):
+                raise ValueError(f"Expected dict at root level, got {type(data).__name__}: {data}")
+
+            if 'agents' not in data:
+                raise ValueError(f"Missing 'agents' key in agents.json. Keys found: {list(data.keys())}")
+
+            agents = data['agents']
+
+            if not isinstance(agents, list):
+                raise ValueError(f"Expected 'agents' to be a list, got {type(agents).__name__}")
+
             for agent in agents:
+                if not isinstance(agent, dict):
+                    print(f"Warning: Skipping non-dict agent entry: {agent}")
+                    continue
+
                 name = agent.get('name', '')
                 agent_file = agent.get('agent-file', '')
                 description = agent.get('description', '')
@@ -97,7 +112,10 @@ class AgentManagerDialog:
                 self.agent_tree.insert('', tk.END, values=(name, agent_file, description))
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load agents: {e}")
+            import traceback
+            full_error = traceback.format_exc()
+            print(f"Full error traceback:\n{full_error}")
+            messagebox.showerror("Error", f"Failed to load agents: {e}\n\nCheck console for full traceback.")
 
     def create_agent(self):
         """Open dialog to create a new agent."""
@@ -135,7 +153,13 @@ class AgentManagerDialog:
         agent_file = values[1]
 
         # Confirm deletion
-        if not messagebox.askyesno("Confirm Delete", f"Delete agent '{agent_name}'?\n\nThis will:\n- Remove the agent from agents.json\n- Delete the agent markdown file\n\nThis action cannot be undone."):
+        if not messagebox.askyesno("Confirm Delete",
+                                   f"Delete agent '{agent_name}'?\n\n"
+                                   f"This will:\n"
+                                   f"- Remove the agent from agents.json\n"
+                                   f"- Remove the agent from AGENT_CONTRACTS.json\n"
+                                   f"- Delete the agent markdown file\n\n"
+                                   f"This action cannot be undone."):
             return
 
         try:
@@ -143,12 +167,28 @@ class AgentManagerDialog:
             with open(self.agents_file, 'r') as f:
                 data = json.load(f)
 
-            agents = data.get('agents', [])
-            agents = [a for a in agents if a.get('agent-file') != agent_file]
-            data['agents'] = agents
+            # Handle both {"agents": [...]} and [...] formats
+            if isinstance(data, list):
+                agents = [a for a in data if a.get('agent-file') != agent_file]
+                with open(self.agents_file, 'w') as f:
+                    json.dump(agents, f, indent=2)
+            elif isinstance(data, dict) and 'agents' in data:
+                data['agents'] = [a for a in data['agents'] if a.get('agent-file') != agent_file]
+                with open(self.agents_file, 'w') as f:
+                    json.dump(data, f, indent=2)
 
-            with open(self.agents_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            # Remove from AGENT_CONTRACTS.json
+            contracts_file = self.queue.project_root / ".claude/AGENT_CONTRACTS.json"
+            if contracts_file.exists():
+                with open(contracts_file, 'r') as f:
+                    contracts_data = json.load(f)
+
+                # Remove the agent from contracts
+                if "agents" in contracts_data and agent_file in contracts_data["agents"]:
+                    del contracts_data["agents"][agent_file]
+
+                    with open(contracts_file, 'w') as f:
+                        json.dump(contracts_data, f, indent=2)
 
             # Delete markdown file
             md_file = self.agents_dir / f"{agent_file}.md"
