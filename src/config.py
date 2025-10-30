@@ -7,8 +7,8 @@ class Config:
     """Application configuration."""
 
     # Application info
-    APP_NAME = "Multi-Agent Task Queue Manager"
-    VERSION = "1.0.0"
+    APP_NAME = "Claude Multi-Agent Manager"
+    VERSION = "1.0.3"
 
     # Auto-refresh settings
     AUTO_REFRESH_INTERVAL = 3  # seconds

@@ -32,7 +32,6 @@ class OperationsLogDialog:
         header_frame.pack(fill=tk.X)
 
         ttk.Label(header_frame, text="Log File: .claude/logs/queue_operations.log").pack(side=tk.LEFT)
-        ttk.Button(header_frame, text="Refresh", command=self.load_log).pack(side=tk.RIGHT)
 
         # Log text
         text_frame = ttk.Frame(self.dialog, padding=10)
@@ -57,7 +56,8 @@ class OperationsLogDialog:
         self.status_label = ttk.Label(footer_frame, text="")
         self.status_label.pack(side=tk.LEFT)
 
-        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side=tk.RIGHT)
+        ttk.Button(footer_frame, text="Refresh", command=self.load_log).pack(side=tk.LEFT, padx=5)
+        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
 
     def load_log(self):
         self.text_widget.config(state=tk.NORMAL)

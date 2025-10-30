@@ -1,5 +1,6 @@
 """
 Agent Manager dialog for viewing and managing agents.
+v3.0 - Updated to use enhanced agent editor.
 """
 
 import tkinter as tk
@@ -19,11 +20,11 @@ class AgentManagerDialog:
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Agent Manager")
-        self.dialog.geometry("800x600")
+        self.dialog.geometry("900x600")
         self.dialog.transient(parent)
         self.dialog.grab_set()
 
-        # Center on parent
+        # Center
         self.dialog.update_idletasks()
         x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
         y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
@@ -33,19 +34,17 @@ class AgentManagerDialog:
         self.load_agents()
 
     def build_ui(self):
-        # Main frame
         main_frame = ttk.Frame(self.dialog, padding=20)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Title
         ttk.Label(main_frame, text="Manage Agents", font=('Arial', 14, 'bold')).pack(pady=(0, 10))
 
-        # Agent list frame
+        # Agent list
         list_frame = ttk.LabelFrame(main_frame, text="Agents", padding=10)
         list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        # Treeview for agents
-        columns = ('name', 'file', 'description')
+        # Treeview - Enhanced with skills column
+        columns = ('name', 'file', 'skills_count', 'description')
         self.agent_tree = ttk.Treeview(
             list_frame,
             columns=columns,
@@ -55,18 +54,22 @@ class AgentManagerDialog:
 
         self.agent_tree.heading('name', text='Name')
         self.agent_tree.heading('file', text='File')
+        self.agent_tree.heading('skills_count', text='Skills')  # NEW
         self.agent_tree.heading('description', text='Description')
 
-        self.agent_tree.column('name', width=150)
+        self.agent_tree.column('name', width=180)
         self.agent_tree.column('file', width=150)
+        self.agent_tree.column('skills_count', width=60)  # NEW
         self.agent_tree.column('description', width=400)
 
-        # Scrollbar
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.agent_tree.yview)
         self.agent_tree.configure(yscrollcommand=scrollbar.set)
 
         self.agent_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Bind double-click
+        self.agent_tree.bind('<Double-Button-1>', lambda e: self.edit_agent())
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -80,7 +83,6 @@ class AgentManagerDialog:
 
     def load_agents(self):
         """Load agents from agents.json."""
-        # Clear current items
         for item in self.agent_tree.get_children():
             self.agent_tree.delete(item)
 
@@ -88,39 +90,40 @@ class AgentManagerDialog:
             with open(self.agents_file, 'r') as f:
                 data = json.load(f)
 
-            # Debug: Check what we loaded
-            if not isinstance(data, dict):
-                raise ValueError(f"Expected dict at root level, got {type(data).__name__}: {data}")
-
-            if 'agents' not in data:
-                raise ValueError(f"Missing 'agents' key in agents.json. Keys found: {list(data.keys())}")
-
-            agents = data['agents']
-
-            if not isinstance(agents, list):
-                raise ValueError(f"Expected 'agents' to be a list, got {type(agents).__name__}")
+            # Handle both formats
+            agents = data.get('agents', []) if isinstance(data, dict) else data
 
             for agent in agents:
                 if not isinstance(agent, dict):
-                    print(f"Warning: Skipping non-dict agent entry: {agent}")
                     continue
 
                 name = agent.get('name', '')
                 agent_file = agent.get('agent-file', '')
                 description = agent.get('description', '')
 
-                self.agent_tree.insert('', tk.END, values=(name, agent_file, description))
+                # NEW: Show skills count
+                skills = agent.get('skills', [])
+                skills_count = len(skills) if skills else 0
+
+                self.agent_tree.insert(
+                    '',
+                    tk.END,
+                    values=(name, agent_file, skills_count, description)
+                )
 
         except Exception as e:
-            import traceback
-            full_error = traceback.format_exc()
-            print(f"Full error traceback:\n{full_error}")
-            messagebox.showerror("Error", f"Failed to load agents: {e}\n\nCheck console for full traceback.")
+            messagebox.showerror("Error", f"Failed to load agents: {e}")
 
     def create_agent(self):
         """Open dialog to create a new agent."""
-        from .create_edit_agent_dialog import CreateEditAgentDialog
-        dialog = CreateEditAgentDialog(self.dialog, self.queue, self.settings, mode='create')
+        # UPDATED: Use enhanced version
+        from .enhanced_agent_manager import EnhancedCreateEditAgentDialog
+        dialog = EnhancedCreateEditAgentDialog(
+            self.dialog,
+            self.queue,
+            self.settings,
+            mode='create'
+        )
         if dialog.result:
             self.load_agents()
 
@@ -135,8 +138,15 @@ class AgentManagerDialog:
         values = self.agent_tree.item(item, 'values')
         agent_file = values[1]
 
-        from .create_edit_agent_dialog import CreateEditAgentDialog
-        dialog = CreateEditAgentDialog(self.dialog, self.queue, self.settings, mode='edit', agent_file=agent_file)
+        # UPDATED: Use enhanced version
+        from .enhanced_agent_manager import EnhancedCreateEditAgentDialog
+        dialog = EnhancedCreateEditAgentDialog(
+            self.dialog,
+            self.queue,
+            self.settings,
+            mode='edit',
+            agent_file=agent_file
+        )
         if dialog.result:
             self.load_agents()
 
@@ -152,14 +162,15 @@ class AgentManagerDialog:
         agent_name = values[0]
         agent_file = values[1]
 
-        # Confirm deletion
-        if not messagebox.askyesno("Confirm Delete",
-                                   f"Delete agent '{agent_name}'?\n\n"
-                                   f"This will:\n"
-                                   f"- Remove the agent from agents.json\n"
-                                   f"- Remove the agent from AGENT_CONTRACTS.json\n"
-                                   f"- Delete the agent markdown file\n\n"
-                                   f"This action cannot be undone."):
+        if not messagebox.askyesno(
+                "Confirm Delete",
+                f"Delete agent '{agent_name}'?\n\n"
+                f"This will:\n"
+                f"- Remove from agents.json\n"
+                f"- Remove from AGENT_CONTRACTS.json\n"
+                f"- Delete markdown file\n\n"
+                f"Cannot be undone."
+        ):
             return
 
         try:
@@ -167,36 +178,36 @@ class AgentManagerDialog:
             with open(self.agents_file, 'r') as f:
                 data = json.load(f)
 
-            # Handle both {"agents": [...]} and [...] formats
-            if isinstance(data, list):
-                agents = [a for a in data if a.get('agent-file') != agent_file]
-                with open(self.agents_file, 'w') as f:
-                    json.dump(agents, f, indent=2)
-            elif isinstance(data, dict) and 'agents' in data:
-                data['agents'] = [a for a in data['agents'] if a.get('agent-file') != agent_file]
+            agents = data.get('agents', []) if isinstance(data, dict) else data
+            agents = [a for a in agents if a.get('agent-file') != agent_file]
+
+            if isinstance(data, dict):
+                data['agents'] = agents
                 with open(self.agents_file, 'w') as f:
                     json.dump(data, f, indent=2)
+            else:
+                with open(self.agents_file, 'w') as f:
+                    json.dump(agents, f, indent=2)
 
-            # Remove from AGENT_CONTRACTS.json
+            # Remove from contracts
             contracts_file = self.queue.project_root / ".claude/AGENT_CONTRACTS.json"
             if contracts_file.exists():
                 with open(contracts_file, 'r') as f:
-                    contracts_data = json.load(f)
+                    contracts = json.load(f)
 
-                # Remove the agent from contracts
-                if "agents" in contracts_data and agent_file in contracts_data["agents"]:
-                    del contracts_data["agents"][agent_file]
+                if "agents" in contracts and agent_file in contracts["agents"]:
+                    del contracts["agents"][agent_file]
 
                     with open(contracts_file, 'w') as f:
-                        json.dump(contracts_data, f, indent=2)
+                        json.dump(contracts, f, indent=2)
 
             # Delete markdown file
             md_file = self.agents_dir / f"{agent_file}.md"
             if md_file.exists():
                 md_file.unlink()
 
-            messagebox.showinfo("Success", f"Agent '{agent_name}' deleted successfully.")
+            messagebox.showinfo("Success", f"Agent '{agent_name}' deleted.")
             self.load_agents()
 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to delete agent: {e}")
+            messagebox.showerror("Error", f"Failed to delete: {e}")

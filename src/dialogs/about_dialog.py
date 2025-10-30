@@ -4,8 +4,15 @@ About dialog showing application information.
 
 import tkinter as tk
 from tkinter import ttk
+from pathlib import Path
 
 from ..config import Config
+
+try:
+    from PIL import Image, ImageTk
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
 
 
 class AboutDialog:
@@ -31,16 +38,30 @@ class AboutDialog:
         main_frame = ttk.Frame(self.dialog, padding=30)
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # Icon/Title
+        # Icon
+        try:
+            icon_path = Path(__file__).parent.parent.parent / "assets" / "icon.png"
+            if icon_path.exists() and PIL_AVAILABLE:
+                img = Image.open(icon_path)
+                img = img.resize((96, 96), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img)
+
+                icon_label = ttk.Label(main_frame, image=photo)
+                icon_label.image = photo  # Keep reference
+                icon_label.pack(pady=(0, 10))
+        except Exception as e:
+            print(f"Could not load icon: {e}")
+
+        # Title
         ttk.Label(
             main_frame,
-            text="📋 Task Queue Manager",
+            text="Claude Multi-Agent Manager",
             font=('Arial', 16, 'bold')
         ).pack(pady=10)
 
         ttk.Label(
             main_frame,
-            text=f"Version {Config.VERSION}",
+            text="Version 1.0.3",
             font=('Arial', 12)
         ).pack(pady=5)
 
