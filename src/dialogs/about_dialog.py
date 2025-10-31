@@ -36,7 +36,7 @@ class AboutDialog:
 
     def build_ui(self):
         main_frame = ttk.Frame(self.dialog, padding=30)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill="both", expand=True)
 
         # Icon
         try:
@@ -65,7 +65,7 @@ class AboutDialog:
             font=('Arial', 12)
         ).pack(pady=5)
 
-        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+        ttk.Separator(main_frame, orient="horizontal").pack(fill="x", pady=20)
 
         # Description
         desc_text = (
@@ -80,7 +80,7 @@ class AboutDialog:
             font=('Arial', 10)
         ).pack(pady=10)
 
-        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
+        ttk.Separator(main_frame, orient="horizontal").pack(fill="x", pady=20)
 
         # Credits
         ttk.Label(

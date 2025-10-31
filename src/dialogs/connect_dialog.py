@@ -32,31 +32,31 @@ class ConnectDialog:
     def build_ui(self):
         """Build UI."""
         main_frame = ttk.Frame(self.dialog, padding=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill="both", expand=True)
 
         # Instructions
         ttk.Label(
             main_frame,
             text="Select the project root directory containing .claude/ folder:",
             wraplength=650
-        ).pack(anchor=tk.W, pady=(0, 10))
+        ).pack(anchor="w", pady=(0, 10))
 
         # Path selection
         path_frame = ttk.LabelFrame(main_frame, text="Project Directory", padding=10)
-        path_frame.pack(fill=tk.X, pady=(0, 20))
+        path_frame.pack(fill="x", pady=(0, 20))
 
         entry_frame = ttk.Frame(path_frame)
-        entry_frame.pack(fill=tk.X)
+        entry_frame.pack(fill="x")
 
         self.path_var = tk.StringVar()
         self.path_entry = ttk.Entry(entry_frame, textvariable=self.path_var)
-        self.path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.path_entry.pack(side="left", fill="x", expand=True)
 
-        ttk.Button(entry_frame, text="Browse...", command=self.browse).pack(side=tk.LEFT, padx=(5, 0))
+        ttk.Button(entry_frame, text="Browse...", command=self.browse).pack(side="left", padx=(5, 0))
 
         # Validation frame
         self.validation_frame = ttk.LabelFrame(main_frame, text="System Validation", padding=10)
-        self.validation_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+        self.validation_frame.pack(fill="both", expand=True, pady=(0, 20))
 
         # Validation items
         self.validation_items = {
@@ -73,7 +73,7 @@ class ConnectDialog:
         }
 
         for label in self.validation_items.values():
-            label.pack(anchor=tk.W, pady=3)
+            label.pack(anchor="w", pady=3)
 
         # Version info
         self.version_label = ttk.Label(
@@ -82,7 +82,7 @@ class ConnectDialog:
             font=('Arial', 9, 'bold'),
             foreground='blue'
         )
-        self.version_label.pack(anchor=tk.W, pady=(10, 0))
+        self.version_label.pack(anchor="w", pady=(10, 0))
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
@@ -94,9 +94,9 @@ class ConnectDialog:
             command=self.connect,
             state=tk.DISABLED
         )
-        self.connect_btn.pack(side=tk.LEFT, padx=5)
+        self.connect_btn.pack(side="left", padx=5)
 
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side="left", padx=5)
 
         # Trace path changes
         self.path_var.trace_add('write', lambda *args: self.validate_path())

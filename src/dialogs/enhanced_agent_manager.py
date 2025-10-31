@@ -55,11 +55,11 @@ class EnhancedCreateEditAgentDialog:
     def build_ui(self):
         """Build the UI with tabbed interface."""
         main_frame = ttk.Frame(self.dialog, padding=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill="both", expand=True)
 
         # Notebook
         notebook = ttk.Notebook(main_frame)
-        notebook.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        notebook.pack(fill="both", expand=True, pady=(0, 10))
 
         # Tabs
         basic_tab = ttk.Frame(notebook, padding=20)
@@ -81,8 +81,8 @@ class EnhancedCreateEditAgentDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Save Agent", command=self.save_agent, width=15).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.cancel, width=15).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Save Agent", command=self.save_agent, width=15).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel, width=15).pack(side="left", padx=5)
 
         ttk.Label(main_frame, text="* Required fields", font=('Arial', 9), foreground='gray').pack()
 
@@ -90,74 +90,74 @@ class EnhancedCreateEditAgentDialog:
         """Build basic information tab."""
         # Name and File on same line
         name_file_frame = ttk.Frame(parent)
-        name_file_frame.pack(fill=tk.X, pady=(0, 15))
+        name_file_frame.pack(fill="x", pady=(0, 15))
 
         # Name column
         name_col = ttk.Frame(name_file_frame)
-        name_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Label(name_col, text="Agent Name: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W)
+        name_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ttk.Label(name_col, text="Agent Name: *", font=('Arial', 10, 'bold')).pack(anchor="w")
         self.name_var = tk.StringVar()
-        ttk.Entry(name_col, textvariable=self.name_var, width=30).pack(fill=tk.X)
+        ttk.Entry(name_col, textvariable=self.name_var, width=30).pack(fill="x")
 
         # File column
         file_col = ttk.Frame(name_file_frame)
-        file_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        ttk.Label(file_col, text="File Name (slug): *", font=('Arial', 10, 'bold')).pack(anchor=tk.W)
+        file_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ttk.Label(file_col, text="File Name (slug): *", font=('Arial', 10, 'bold')).pack(anchor="w")
         self.file_var = tk.StringVar()
         file_entry = ttk.Entry(file_col, textvariable=self.file_var, width=30)
-        file_entry.pack(fill=tk.X)
+        file_entry.pack(fill="x")
         if self.mode == 'edit':
             file_entry.config(state='readonly')
 
-        ttk.Label(parent, text="(lowercase, hyphens only)", font=('Arial', 8), foreground='gray').pack(anchor=tk.W, pady=(0, 15))
+        ttk.Label(parent, text="(lowercase, hyphens only)", font=('Arial', 8), foreground='gray').pack(anchor="w", pady=(0, 15))
 
         # Description - single line
-        ttk.Label(parent, text="Description: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Description: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.description_var = tk.StringVar()
-        ttk.Entry(parent, textvariable=self.description_var, width=70).pack(fill=tk.X, pady=(0, 15))
+        ttk.Entry(parent, textvariable=self.description_var, width=70).pack(fill="x", pady=(0, 15))
 
         # Agent Details
         details_header = ttk.Frame(parent)
-        details_header.pack(fill=tk.X, pady=(0, 5))
+        details_header.pack(fill="x", pady=(0, 5))
 
-        ttk.Label(details_header, text="Role Definition: *", font=('Arial', 10, 'bold')).pack(side=tk.LEFT)
+        ttk.Label(details_header, text="Role Definition: *", font=('Arial', 10, 'bold')).pack(side="left")
 
         api_key = self.settings.get_claude_api_key() if self.settings else None
         if api_key:
-            ttk.Button(details_header, text="Generate with AI", command=self.generate_details).pack(side=tk.RIGHT)
+            ttk.Button(details_header, text="Generate with AI", command=self.generate_details).pack(side="right")
 
         details_frame = ttk.Frame(parent)
-        details_frame.pack(fill=tk.BOTH, expand=True)
+        details_frame.pack(fill="both", expand=True)
 
-        self.details_text = tk.Text(details_frame, wrap=tk.WORD, font=('Courier', 9))
-        details_scroll = ttk.Scrollbar(details_frame, orient=tk.VERTICAL, command=self.details_text.yview)
+        self.details_text = tk.Text(details_frame, wrap="word", font=('Courier', 9))
+        details_scroll = ttk.Scrollbar(details_frame, orient="vertical", command=self.details_text.yview)
         self.details_text.configure(yscrollcommand=details_scroll.set)
 
-        self.details_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        details_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.details_text.pack(side="left", fill="both", expand=True)
+        details_scroll.pack(side="right", fill="y")
 
     def build_workflow_tab(self, parent):
         """Build workflow contract tab."""
         # Role
-        ttk.Label(parent, text="Workflow Role: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Workflow Role: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.role_var = tk.StringVar()
         role_combo = ttk.Combobox(parent, textvariable=self.role_var, state='readonly', width=40)
         role_combo['values'] = ['analysis', 'technical_design', 'implementation', 'testing', 'documentation', 'integration']
-        role_combo.pack(fill=tk.X, pady=(0, 15))
+        role_combo.pack(fill="x", pady=(0, 15))
         role_combo.bind('<<ComboboxSelected>>', self.on_role_selected)
 
         # Output Directory
-        ttk.Label(parent, text="Output Directory: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Output Directory: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.output_dir_var = tk.StringVar()
-        ttk.Entry(parent, textvariable=self.output_dir_var, width=50).pack(fill=tk.X, pady=(0, 15))
+        ttk.Entry(parent, textvariable=self.output_dir_var, width=50).pack(fill="x", pady=(0, 15))
 
         # Root Document
-        ttk.Label(parent, text="Root Document: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Root Document: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.root_doc_var = tk.StringVar(value="summary.md")
-        ttk.Entry(parent, textvariable=self.root_doc_var, width=50).pack(fill=tk.X, pady=(0, 15))
+        ttk.Entry(parent, textvariable=self.root_doc_var, width=50).pack(fill="x", pady=(0, 15))
 
         # Success Status
-        ttk.Label(parent, text="Success Status Code: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Success Status Code: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.success_status_var = tk.StringVar()
         status_combo = ttk.Combobox(parent, textvariable=self.success_status_var, state='readonly', width=40)
         status_combo['values'] = [
@@ -168,26 +168,26 @@ class EnhancedCreateEditAgentDialog:
             'DOCUMENTATION_COMPLETE',
             'INTEGRATION_COMPLETE'
         ]
-        status_combo.pack(fill=tk.X, pady=(0, 15))
+        status_combo.pack(fill="x", pady=(0, 15))
 
         # Next Agent
-        ttk.Label(parent, text="Next Agent: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(parent, text="Next Agent: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.next_agent_var = tk.StringVar()
         self.next_agent_combo = ttk.Combobox(parent, textvariable=self.next_agent_var, state='readonly', width=40)
         next_values = ['(none - workflow ends)'] + list(self.agents_map.values())
         self.next_agent_combo['values'] = next_values
-        self.next_agent_combo.pack(fill=tk.X, pady=(0, 15))
+        self.next_agent_combo.pack(fill="x", pady=(0, 15))
 
         # Metadata Required
         self.metadata_required_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(parent, text="Require metadata header in outputs", variable=self.metadata_required_var).pack(anchor=tk.W)
+        ttk.Checkbutton(parent, text="Require metadata header in outputs", variable=self.metadata_required_var).pack(anchor="w")
 
     def build_tools_tab(self, parent):
         """Build tools selection tab."""
-        ttk.Label(parent, text="Available Tools: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(parent, text="Available Tools: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 10))
 
         tools_frame = ttk.Frame(parent)
-        tools_frame.pack(fill=tk.BOTH, expand=True)
+        tools_frame.pack(fill="both", expand=True)
 
         if self.tools_data and 'claude_code_tools' in self.tools_data:
             tools_list = self.tools_data['claude_code_tools']
@@ -210,25 +210,25 @@ class EnhancedCreateEditAgentDialog:
         """Build skills selection tab."""
         # Header
         header_frame = ttk.Frame(parent)
-        header_frame.pack(fill=tk.X, pady=(0, 10))
+        header_frame.pack(fill="x", pady=(0, 10))
 
         ttk.Label(
             header_frame,
             text="Assign Skills to Agent",
             font=('Arial', 11, 'bold')
-        ).pack(side=tk.LEFT)
+        ).pack(side="left")
 
         ttk.Button(
             header_frame,
             text="Preview Skills Prompt",
             command=self.preview_agent_skills
-        ).pack(side=tk.RIGHT)
+        ).pack(side="right")
 
         # Category filter
         filter_frame = ttk.Frame(parent)
-        filter_frame.pack(fill=tk.X, pady=(0, 10))
+        filter_frame.pack(fill="x", pady=(0, 10))
 
-        ttk.Label(filter_frame, text="Filter by category:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(filter_frame, text="Filter by category:").pack(side="left", padx=(0, 5))
         self.skills_category_var = tk.StringVar(value="All")
         self.skills_category_combo = ttk.Combobox(
             filter_frame,
@@ -236,7 +236,7 @@ class EnhancedCreateEditAgentDialog:
             state='readonly',
             width=20
         )
-        self.skills_category_combo.pack(side=tk.LEFT)
+        self.skills_category_combo.pack(side="left")
         self.skills_category_combo.bind('<<ComboboxSelected>>', self.filter_skills_list)
 
         # Populate categories
@@ -249,7 +249,7 @@ class EnhancedCreateEditAgentDialog:
 
         # Skills checkboxes frame
         self.skills_checkboxes_frame = ttk.Frame(parent)
-        self.skills_checkboxes_frame.pack(fill=tk.BOTH, expand=True)
+        self.skills_checkboxes_frame.pack(fill="both", expand=True)
 
         self.populate_skills_checkboxes()
 
@@ -260,7 +260,7 @@ class EnhancedCreateEditAgentDialog:
             font=('Arial', 9),
             foreground='gray'
         )
-        self.skills_summary_label.pack(anchor=tk.W, pady=(10, 0))
+        self.skills_summary_label.pack(anchor="w", pady=(10, 0))
 
     def populate_skills_checkboxes(self):
         """Populate skills checkboxes with filtering."""
@@ -273,7 +273,7 @@ class EnhancedCreateEditAgentDialog:
                 self.skills_checkboxes_frame,
                 text="Skills system not available",
                 foreground='red'
-            ).pack(anchor=tk.W)
+            ).pack(anchor="w")
             return
 
         category_filter = self.skills_category_var.get()
@@ -281,7 +281,7 @@ class EnhancedCreateEditAgentDialog:
 
         # Create scrollable frame (resized to fit content better)
         canvas = tk.Canvas(self.skills_checkboxes_frame, height=400, width=600)
-        scrollbar = ttk.Scrollbar(self.skills_checkboxes_frame, orient=tk.VERTICAL, command=canvas.yview)
+        scrollbar = ttk.Scrollbar(self.skills_checkboxes_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
         scrollable_frame.bind(
@@ -292,8 +292,8 @@ class EnhancedCreateEditAgentDialog:
         canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         # Add checkboxes
         row = 0
@@ -322,7 +322,7 @@ class EnhancedCreateEditAgentDialog:
             cb_frame.grid(row=row, column=0, sticky=tk.W, pady=3, padx=5)
 
             cb = ttk.Checkbutton(cb_frame, text=f"{name} ({cat_display})", variable=var)
-            cb.pack(anchor=tk.W)
+            cb.pack(anchor="w")
 
             # Description tooltip (as label)
             if description:
@@ -332,7 +332,7 @@ class EnhancedCreateEditAgentDialog:
                     font=('Arial', 8),
                     foreground='gray',
                     wraplength=700
-                ).pack(anchor=tk.W, padx=(20, 0))
+                ).pack(anchor="w", padx=(20, 0))
 
             row += 1
 
@@ -383,14 +383,14 @@ class EnhancedCreateEditAgentDialog:
             preview.transient(self.dialog)
 
             text_frame = ttk.Frame(preview, padding=10)
-            text_frame.pack(fill=tk.BOTH, expand=True)
+            text_frame.pack(fill="both", expand=True)
 
-            text_widget = tk.Text(text_frame, wrap=tk.WORD, font=('Courier', 9))
-            scroll = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+            text_widget = tk.Text(text_frame, wrap="word", font=('Courier', 9))
+            scroll = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
             text_widget.configure(yscrollcommand=scroll.set)
 
-            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            text_widget.pack(side="left", fill="both", expand=True)
+            scroll.pack(side="right", fill="y")
 
             text_widget.insert('1.0', '\n'.join(preview_content))
             text_widget.config(state=tk.DISABLED)
@@ -402,12 +402,12 @@ class EnhancedCreateEditAgentDialog:
 
     def build_tools_tab(self, parent):
         """Build tools selection tab."""
-        ttk.Label(parent, text="Available Tools: *", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Label(parent, text="Available Tools: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 10))
 
         # Agent persona quick selection
         if self.tools_data and 'agent_personas' in self.tools_data:
             persona_frame = ttk.LabelFrame(parent, text="Quick Select from Persona", padding=10)
-            persona_frame.pack(fill=tk.X, pady=(0, 15))
+            persona_frame.pack(fill="x", pady=(0, 15))
 
             self.persona_var = tk.StringVar(value="")
             persona_combo = ttk.Combobox(persona_frame, textvariable=self.persona_var, state='readonly', width=30)
@@ -415,12 +415,12 @@ class EnhancedCreateEditAgentDialog:
             personas = self.tools_data['agent_personas']
             persona_names = ["(none)"] + [personas[p]['display_name'] for p in personas.keys()]
             persona_combo['values'] = persona_names
-            persona_combo.pack(fill=tk.X)
+            persona_combo.pack(fill="x")
             persona_combo.bind('<<ComboboxSelected>>', self.on_persona_selected)
 
         # Tools grid
         tools_frame = ttk.Frame(parent)
-        tools_frame.pack(fill=tk.BOTH, expand=True)
+        tools_frame.pack(fill="both", expand=True)
 
         if self.tools_data and 'claude_code_tools' in self.tools_data:
             tools_list = self.tools_data['claude_code_tools']

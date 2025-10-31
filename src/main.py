@@ -71,11 +71,12 @@ class TaskQueueUI:
 
             # Try to load PNG icon with PIL
             if icon_png.exists() and PIL_AVAILABLE:
-                # Load multiple sizes for better display
+                # Load original image
                 img = Image.open(icon_png)
 
-                # Create icons at multiple sizes
-                sizes = [16, 32, 48, 64, 128]
+                # Create icons at multiple sizes including high-res for dialogs
+                # Start with largest first for better quality fallback
+                sizes = [256, 128, 64, 48, 32, 16]
                 photos = []
 
                 for size in sizes:
@@ -83,12 +84,13 @@ class TaskQueueUI:
                     photo = ImageTk.PhotoImage(resized)
                     photos.append(photo)
 
-                # Set all icon sizes
+                # Set all icon sizes (largest first)
+                # The True parameter makes it default for all child windows (messageboxes)
                 self.root.iconphoto(True, *photos)
 
                 # Keep references to prevent garbage collection
                 self.root._icon_photos = photos
-                print(f"Icon loaded successfully from {icon_png}")
+                print(f"Icon loaded successfully from {icon_png} ({len(sizes)} sizes)")
             else:
                 if not icon_png.exists():
                     print(f"Icon file not found: {icon_png}")
@@ -181,7 +183,7 @@ class TaskQueueUI:
     def build_connection_header(self):
         """Create connection status header."""
         self.connection_frame = ttk.Frame(self.root, style='Connection.TFrame', padding=5)
-        self.connection_frame.pack(fill=tk.X)
+        self.connection_frame.pack(fill="x")
 
         self.connection_label = ttk.Label(
             self.connection_frame,
@@ -189,7 +191,7 @@ class TaskQueueUI:
             font=('Arial', 9),
             style='Connection.TLabel'
         )
-        self.connection_label.pack(side=tk.LEFT)
+        self.connection_label.pack(side="left")
 
         # System version indicator
         self.version_label = ttk.Label(
@@ -198,18 +200,18 @@ class TaskQueueUI:
             font=('Arial', 9),
             style='Connection.TLabel'
         )
-        self.version_label.pack(side=tk.RIGHT, padx=10)
+        self.version_label.pack(side="right", padx=10)
 
     def build_task_table(self):
         """Create main task table with external links column."""
         table_frame = ttk.Frame(self.root, padding=10)
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        table_frame.pack(fill="both", expand=True)
 
         label_frame = ttk.LabelFrame(table_frame, text="TASK QUEUE", padding=5)
-        label_frame.pack(fill=tk.BOTH, expand=True)
+        label_frame.pack(fill="both", expand=True)
 
         tree_frame = ttk.Frame(label_frame)
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        tree_frame.pack(fill="both", expand=True)
 
         # Columns without external_links
         columns = ('task_id', 'title', 'agent', 'status', 'start_date', 'end_date', 'runtime')
@@ -237,8 +239,8 @@ class TaskQueueUI:
         self.task_tree.column('runtime', width=80, minwidth=70)
 
         # Scrollbars
-        vsb = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.task_tree.yview)
-        hsb = ttk.Scrollbar(tree_frame, orient=tk.HORIZONTAL, command=self.task_tree.xview)
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.task_tree.yview)
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.task_tree.xview)
         self.task_tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
         self.task_tree.grid(row=0, column=0, sticky='nsew')
@@ -267,14 +269,14 @@ class TaskQueueUI:
 
     def build_status_bar(self):
         """Create status bar."""
-        status_frame = ttk.Frame(self.root, relief=tk.SUNKEN, padding=2)
-        status_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        status_frame = ttk.Frame(self.root, relief="sunken", padding=2)
+        status_frame.pack(fill="x", side="bottom")
 
         self.status_label = ttk.Label(status_frame, text="Not connected", font=('Arial', 9))
-        self.status_label.pack(side=tk.LEFT, padx=5)
+        self.status_label.pack(side="left", padx=5)
 
         self.refresh_label = ttk.Label(status_frame, text="Auto-refresh: OFF", font=('Arial', 9))
-        self.refresh_label.pack(side=tk.RIGHT, padx=5)
+        self.refresh_label.pack(side="right", padx=5)
 
     def configure_styles(self):
         """Configure styles."""
@@ -461,9 +463,9 @@ class TaskQueueUI:
                 can_cancel = task.status in ['pending', 'active']
 
                 menu.add_command(label="Start Task", command=self.start_task,
-                                 state=tk.NORMAL if can_start else tk.DISABLED)
+                                 state="normal" if can_start else "disabled")
                 menu.add_command(label="Cancel Task", command=self.cancel_task,
-                                 state=tk.NORMAL if can_cancel else tk.DISABLED)
+                                 state="normal" if can_cancel else "disabled")
                 menu.add_separator()
                 menu.add_command(label="View Details...", command=self.show_task_details)
 
@@ -633,16 +635,16 @@ class TaskQueueUI:
         window.geometry("600x500")
 
         frame = ttk.Frame(window, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame.pack(fill="both", expand=True)
 
         ttk.Label(frame, text="Agent Skills Summary", font=('Arial', 14, 'bold')).pack(pady=(0, 10))
 
-        text_widget = tk.Text(frame, wrap=tk.WORD, font=('Courier', 9))
-        scroll = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=text_widget.yview)
+        text_widget = tk.Text(frame, wrap="word", font=('Courier', 9))
+        scroll = ttk.Scrollbar(frame, orient="vertical", command=text_widget.yview)
         text_widget.configure(yscrollcommand=scroll.set)
 
-        text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        text_widget.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
 
         # Build summary
         agents = self.queue.get_agent_list()
@@ -660,7 +662,7 @@ class TaskQueueUI:
 
         text_widget.tag_config('bold', font=('Courier', 9, 'bold'))
         text_widget.tag_config('gray', foreground='gray')
-        text_widget.config(state=tk.DISABLED)
+        text_widget.config(state="disabled")
 
         ttk.Button(window, text="Close", command=window.destroy).pack(pady=10)
 
@@ -709,7 +711,7 @@ class TaskQueueUI:
         dialog.grab_set()
 
         frame = ttk.Frame(dialog, padding=20)
-        frame.pack(fill=tk.BOTH, expand=True)
+        frame.pack(fill="both", expand=True)
 
         ttk.Label(
             frame,
@@ -717,7 +719,7 @@ class TaskQueueUI:
             wraplength=450
         ).pack(pady=(0, 10))
 
-        ttk.Label(frame, text="API Key:").pack(anchor=tk.W)
+        ttk.Label(frame, text="API Key:").pack(anchor="w")
         api_key_var = tk.StringVar()
 
         existing = self.settings.get_claude_api_key()
@@ -725,7 +727,7 @@ class TaskQueueUI:
             api_key_var.set(existing)
 
         entry = ttk.Entry(frame, textvariable=api_key_var, width=60, show="*")
-        entry.pack(fill=tk.X, pady=(0, 10))
+        entry.pack(fill="x", pady=(0, 10))
 
         show_var = tk.BooleanVar()
         ttk.Checkbutton(
@@ -733,7 +735,7 @@ class TaskQueueUI:
             text="Show API Key",
             variable=show_var,
             command=lambda: entry.config(show="" if show_var.get() else "*")
-        ).pack(anchor=tk.W)
+        ).pack(anchor="w")
 
         button_frame = ttk.Frame(frame)
         button_frame.pack(pady=20)
@@ -744,10 +746,10 @@ class TaskQueueUI:
                 self.settings.set_claude_api_key(key)
                 dialog.destroy()
 
-        ttk.Button(button_frame, text="Save", command=save).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Save", command=save).pack(side="left", padx=5)
         ttk.Button(button_frame, text="Clear",
-                   command=lambda: self.settings.clear_claude_api_key() or dialog.destroy()).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+                   command=lambda: self.settings.clear_claude_api_key() or dialog.destroy()).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side="left", padx=5)
 
     def show_about_dialog(self):
         """Show about dialog."""

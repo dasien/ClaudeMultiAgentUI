@@ -34,9 +34,9 @@ class SkillsViewerDialog:
         """Build the UI."""
         # Filter controls at top
         filter_frame = ttk.Frame(self.dialog, padding=10)
-        filter_frame.pack(fill=tk.X)
+        filter_frame.pack(fill="x")
 
-        ttk.Label(filter_frame, text="Category:").pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(filter_frame, text="Category:").pack(side="left", padx=(0, 5))
         self.category_var = tk.StringVar(value="All")
         self.category_combo = ttk.Combobox(
             filter_frame,
@@ -45,16 +45,16 @@ class SkillsViewerDialog:
             width=15
         )
         self.category_combo['values'] = ['All']
-        self.category_combo.pack(side=tk.LEFT, padx=(0, 10))
+        self.category_combo.pack(side="left", padx=(0, 10))
         self.category_combo.bind('<<ComboboxSelected>>', self.filter_skills)
 
         # Main content - two panes
         content_frame = ttk.Frame(self.dialog, padding=10)
-        content_frame.pack(fill=tk.BOTH, expand=True)
+        content_frame.pack(fill="both", expand=True)
 
         # Left pane - Skills list
         left_frame = ttk.LabelFrame(content_frame, text="Available Skills", padding=10)
-        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
+        left_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
         # Treeview for skills
         columns = ('name', 'category', 'directory')
@@ -74,29 +74,29 @@ class SkillsViewerDialog:
         self.skills_tree.column('directory', width=150)
 
         # Scrollbar
-        skills_scroll = ttk.Scrollbar(left_frame, orient=tk.VERTICAL, command=self.skills_tree.yview)
+        skills_scroll = ttk.Scrollbar(left_frame, orient="vertical", command=self.skills_tree.yview)
         self.skills_tree.configure(yscrollcommand=skills_scroll.set)
 
-        self.skills_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        skills_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.skills_tree.pack(side="left", fill="both", expand=True)
+        skills_scroll.pack(side="right", fill="y")
 
         # Bind selection
         self.skills_tree.bind('<<TreeviewSelect>>', self.on_skill_selected)
 
         # Right pane - Skill preview
         right_frame = ttk.LabelFrame(content_frame, text="Skill Details", padding=10)
-        right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
+        right_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
 
         # Skill info section
         info_frame = ttk.Frame(right_frame)
-        info_frame.pack(fill=tk.X, pady=(0, 10))
+        info_frame.pack(fill="x", pady=(0, 10))
 
         self.skill_name_label = ttk.Label(
             info_frame,
             text="Select a skill to view details",
             font=('Arial', 12, 'bold')
         )
-        self.skill_name_label.pack(anchor=tk.W)
+        self.skill_name_label.pack(anchor="w")
 
         self.skill_desc_label = ttk.Label(
             info_frame,
@@ -105,35 +105,35 @@ class SkillsViewerDialog:
             foreground='gray',
             wraplength=400
         )
-        self.skill_desc_label.pack(anchor=tk.W, pady=(5, 0))
+        self.skill_desc_label.pack(anchor="w", pady=(5, 0))
 
-        ttk.Separator(right_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(right_frame, orient="horizontal").pack(fill="x", pady=10)
 
         # Skill content preview
-        ttk.Label(right_frame, text="Content:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(right_frame, text="Content:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
 
         preview_frame = ttk.Frame(right_frame)
-        preview_frame.pack(fill=tk.BOTH, expand=True)
+        preview_frame.pack(fill="both", expand=True)
 
         self.preview_text = tk.Text(
             preview_frame,
-            wrap=tk.WORD,
+            wrap="word",
             font=('Courier', 9),
             state=tk.DISABLED
         )
-        preview_scroll = ttk.Scrollbar(preview_frame, orient=tk.VERTICAL, command=self.preview_text.yview)
+        preview_scroll = ttk.Scrollbar(preview_frame, orient="vertical", command=self.preview_text.yview)
         self.preview_text.configure(yscrollcommand=preview_scroll.set)
 
-        self.preview_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        preview_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.preview_text.pack(side="left", fill="both", expand=True)
+        preview_scroll.pack(side="right", fill="y")
 
-        ttk.Separator(right_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=10)
+        ttk.Separator(right_frame, orient="horizontal").pack(fill="x", pady=10)
 
         # Agents using this skill
-        ttk.Label(right_frame, text="Agents Using This Skill:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(right_frame, text="Agents Using This Skill:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
 
         self.agents_frame = ttk.Frame(right_frame)
-        self.agents_frame.pack(fill=tk.X)
+        self.agents_frame.pack(fill="x")
 
         self.agents_label = ttk.Label(
             self.agents_frame,
@@ -141,11 +141,11 @@ class SkillsViewerDialog:
             font=('Arial', 9),
             foreground='gray'
         )
-        self.agents_label.pack(anchor=tk.W)
+        self.agents_label.pack(anchor="w")
 
         # Bottom buttons
         button_frame = ttk.Frame(self.dialog, padding=10)
-        button_frame.pack(fill=tk.X)
+        button_frame.pack(fill="x")
 
         ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack()
 
@@ -293,14 +293,14 @@ class SkillsViewerDialog:
                         self.agents_frame,
                         text=f"• {agent_name}",
                         font=('Arial', 9)
-                    ).pack(anchor=tk.W, pady=1)
+                    ).pack(anchor="w", pady=1)
             else:
                 ttk.Label(
                     self.agents_frame,
                     text="(no agents currently use this skill)",
                     font=('Arial', 9),
                     foreground='gray'
-                ).pack(anchor=tk.W)
+                ).pack(anchor="w")
 
         except Exception as e:
             ttk.Label(
@@ -308,4 +308,4 @@ class SkillsViewerDialog:
                 text=f"Error: {e}",
                 font=('Arial', 9),
                 foreground='red'
-            ).pack(anchor=tk.W)
+            ).pack(anchor="w")

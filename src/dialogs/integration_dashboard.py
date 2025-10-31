@@ -32,16 +32,16 @@ class IntegrationDashboard:
         """Build the UI."""
         # Header
         header_frame = ttk.Frame(self.dialog, padding=10)
-        header_frame.pack(fill=tk.X)
+        header_frame.pack(fill="x")
 
         # Stats frame
         stats_frame = ttk.Frame(self.dialog, padding=10)
-        stats_frame.pack(fill=tk.X)
+        stats_frame.pack(fill="x")
 
         self.stats_labels = {}
         for key in ['total', 'synced', 'unsynced', 'failed']:
             frame = ttk.Frame(stats_frame)
-            frame.pack(side=tk.LEFT, padx=20)
+            frame.pack(side="left", padx=20)
 
             label = ttk.Label(frame, text="0", font=('Arial', 16, 'bold'))
             label.pack()
@@ -51,7 +51,7 @@ class IntegrationDashboard:
 
         # Main table
         table_frame = ttk.Frame(self.dialog, padding=10)
-        table_frame.pack(fill=tk.BOTH, expand=True)
+        table_frame.pack(fill="both", expand=True)
 
         columns = ('enhancement', 'task_id', 'agent', 'status', 'github', 'jira', 'confluence', 'sync_status')
         self.integration_tree = ttk.Treeview(
@@ -80,8 +80,8 @@ class IntegrationDashboard:
         self.integration_tree.column('sync_status', width=120)
 
         # Scrollbars
-        scroll_y = ttk.Scrollbar(table_frame, orient=tk.VERTICAL, command=self.integration_tree.yview)
-        scroll_x = ttk.Scrollbar(table_frame, orient=tk.HORIZONTAL, command=self.integration_tree.xview)
+        scroll_y = ttk.Scrollbar(table_frame, orient="vertical", command=self.integration_tree.yview)
+        scroll_x = ttk.Scrollbar(table_frame, orient="horizontal", command=self.integration_tree.xview)
         self.integration_tree.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
 
         self.integration_tree.grid(row=0, column=0, sticky='nsew')
@@ -102,11 +102,11 @@ class IntegrationDashboard:
 
         # Bottom buttons
         button_frame = ttk.Frame(self.dialog, padding=10)
-        button_frame.pack(fill=tk.X)
+        button_frame.pack(fill="x")
 
-        ttk.Button(button_frame, text="Sync All Unsynced", command=self.sync_all).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Refresh", command=self.load_integration_status).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Sync All Unsynced", command=self.sync_all).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Refresh", command=self.load_integration_status).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def load_integration_status(self):
         """Load and display integration status for all tasks."""

@@ -35,13 +35,13 @@ class AgentManagerDialog:
 
     def build_ui(self):
         main_frame = ttk.Frame(self.dialog, padding=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill="both", expand=True)
 
         ttk.Label(main_frame, text="Manage Agents", font=('Arial', 14, 'bold')).pack(pady=(0, 10))
 
         # Agent list
         list_frame = ttk.LabelFrame(main_frame, text="Agents", padding=10)
-        list_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        list_frame.pack(fill="both", expand=True, pady=(0, 10))
 
         # Treeview - Enhanced with skills column
         columns = ('name', 'file', 'skills_count', 'description')
@@ -62,11 +62,11 @@ class AgentManagerDialog:
         self.agent_tree.column('skills_count', width=60)  # NEW
         self.agent_tree.column('description', width=400)
 
-        scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.agent_tree.yview)
+        scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.agent_tree.yview)
         self.agent_tree.configure(yscrollcommand=scrollbar.set)
 
-        self.agent_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.agent_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         # Bind double-click
         self.agent_tree.bind('<Double-Button-1>', lambda e: self.edit_agent())
@@ -75,11 +75,11 @@ class AgentManagerDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Create New Agent", command=self.create_agent).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Edit Selected", command=self.edit_agent).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Delete Selected", command=self.delete_agent).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Refresh", command=self.load_agents).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Create New Agent", command=self.create_agent).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Edit Selected", command=self.edit_agent).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Delete Selected", command=self.delete_agent).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Refresh", command=self.load_agents).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def load_agents(self):
         """Load agents from agents.json."""

@@ -44,22 +44,22 @@ class CreateTaskDialog:
         """Build the UI."""
         # Simple frame without scrolling
         main_frame = ttk.Frame(self.dialog, padding=20)
-        main_frame.pack(fill=tk.BOTH, expand=True)
+        main_frame.pack(fill="both", expand=True)
 
         # Title
-        ttk.Label(main_frame, text="Title: *").pack(anchor=tk.W)
+        ttk.Label(main_frame, text="Title: *").pack(anchor="w")
         self.title_var = tk.StringVar()
         self.title_entry = ttk.Entry(main_frame, textvariable=self.title_var, width=70)
-        self.title_entry.pack(fill=tk.X, pady=(0, 5))
+        self.title_entry.pack(fill="x", pady=(0, 5))
 
         # Workflow and Agent on same line (like Priority and Task Type)
         workflow_agent_frame = ttk.Frame(main_frame)
-        workflow_agent_frame.pack(fill=tk.X, pady=(0, 10))
+        workflow_agent_frame.pack(fill="x", pady=(0, 10))
 
         # Workflow
         workflow_col = ttk.Frame(workflow_agent_frame)
-        workflow_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Label(workflow_col, text="Quick Start Workflow (optional):").pack(anchor=tk.W)
+        workflow_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ttk.Label(workflow_col, text="Quick Start Workflow (optional):").pack(anchor="w")
         self.workflow_var = tk.StringVar()
         workflow_combo = ttk.Combobox(workflow_col, textvariable=self.workflow_var, state='readonly', width=25)
         workflows = [
@@ -71,24 +71,24 @@ class CreateTaskDialog:
         ]
         workflow_combo['values'] = workflows
         workflow_combo.current(0)
-        workflow_combo.pack(fill=tk.X)
+        workflow_combo.pack(fill="x")
         workflow_combo.bind('<<ComboboxSelected>>', self.on_workflow_selected)
 
         # Agent
         agent_col = ttk.Frame(workflow_agent_frame)
-        agent_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        ttk.Label(agent_col, text="Agent: *").pack(anchor=tk.W)
+        agent_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ttk.Label(agent_col, text="Agent: *").pack(anchor="w")
         self.agent_var = tk.StringVar()
         self.agent_combo = ttk.Combobox(agent_col, textvariable=self.agent_var, state='readonly', width=25)
         self.agent_combo['values'] = list(self.agents_map.values())
         if self.agent_combo['values']:
             self.agent_combo.current(0)
-        self.agent_combo.pack(fill=tk.X)
+        self.agent_combo.pack(fill="x")
         self.agent_combo.bind('<<ComboboxSelected>>', self.on_agent_selected)
 
         # Skills Preview Frame
         self.skills_frame = ttk.LabelFrame(main_frame, text="🎯 Agent Skills", padding=10)
-        self.skills_frame.pack(fill=tk.X, pady=(0, 10))
+        self.skills_frame.pack(fill="x", pady=(0, 10))
 
         self.skills_list_label = ttk.Label(
             self.skills_frame,
@@ -96,90 +96,90 @@ class CreateTaskDialog:
             font=('Arial', 9),
             foreground='gray'
         )
-        self.skills_list_label.pack(anchor=tk.W)
+        self.skills_list_label.pack(anchor="w")
 
         ttk.Button(
             self.skills_frame,
             text="Preview Full Skills Prompt",
             command=self.preview_skills_prompt,
             state=tk.DISABLED
-        ).pack(anchor=tk.W, pady=(5, 0))
+        ).pack(anchor="w", pady=(5, 0))
 
         self.preview_btn = None  # Store reference for state management
 
         # Priority and Task Type on same line
         priority_type_frame = ttk.Frame(main_frame)
-        priority_type_frame.pack(fill=tk.X, pady=(0, 10))
+        priority_type_frame.pack(fill="x", pady=(0, 10))
 
         # Priority
         priority_col = ttk.Frame(priority_type_frame)
-        priority_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 5))
-        ttk.Label(priority_col, text="Priority: *").pack(anchor=tk.W)
+        priority_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        ttk.Label(priority_col, text="Priority: *").pack(anchor="w")
         self.priority_var = tk.StringVar()
         priority_combo = ttk.Combobox(priority_col, textvariable=self.priority_var, state='readonly', width=25)
         priority_combo['values'] = self.queue.get_priorities()
         priority_combo.current(1)  # Default to 'high'
-        priority_combo.pack(fill=tk.X)
+        priority_combo.pack(fill="x")
 
         # Task Type
         type_col = ttk.Frame(priority_type_frame)
-        type_col.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 0))
-        ttk.Label(type_col, text="Task Type: *").pack(anchor=tk.W)
+        type_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ttk.Label(type_col, text="Task Type: *").pack(anchor="w")
         self.task_type_var = tk.StringVar()
         task_type_combo = ttk.Combobox(type_col, textvariable=self.task_type_var, state='readonly', width=25)
         task_type_combo['values'] = list(self.task_types_map.values())
         task_type_combo.current(0)
-        task_type_combo.pack(fill=tk.X)
+        task_type_combo.pack(fill="x")
 
         # Source File
-        ttk.Label(main_frame, text="Source File: *").pack(anchor=tk.W)
+        ttk.Label(main_frame, text="Source File: *").pack(anchor="w")
         source_frame = ttk.Frame(main_frame)
-        source_frame.pack(fill=tk.X, pady=(0, 5))
+        source_frame.pack(fill="x", pady=(0, 5))
 
         self.source_var = tk.StringVar()
         self.source_entry = ttk.Entry(source_frame, textvariable=self.source_var)
-        self.source_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        ttk.Button(source_frame, text="Browse...", command=self.browse_source).pack(side=tk.LEFT, padx=(5, 0))
+        self.source_entry.pack(side="left", fill="x", expand=True)
+        ttk.Button(source_frame, text="Browse...", command=self.browse_source).pack(side="left", padx=(5, 0))
 
         self.source_var.trace_add('write', lambda *args: self.validate_source_file())
 
         self.source_validation_label = ttk.Label(main_frame, text="", font=('Arial', 9))
-        self.source_validation_label.pack(anchor=tk.W, pady=(0, 10))
+        self.source_validation_label.pack(anchor="w", pady=(0, 10))
 
         # Prompt
         prompt_label_frame = ttk.Frame(main_frame)
-        prompt_label_frame.pack(fill=tk.X, anchor=tk.W)
-        ttk.Label(prompt_label_frame, text="Task Description: *").pack(side=tk.LEFT)
-        ttk.Button(prompt_label_frame, text="Generate with AI", command=self.generate_prompt).pack(side=tk.RIGHT)
+        prompt_label_frame.pack(fill="x", anchor="w")
+        ttk.Label(prompt_label_frame, text="Task Description: *").pack(side="left")
+        ttk.Button(prompt_label_frame, text="Generate with AI", command=self.generate_prompt).pack(side="right")
 
-        self.description_text = tk.Text(main_frame, height=8, wrap=tk.WORD)
-        self.description_text.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        self.description_text = tk.Text(main_frame, height=8, wrap="word")
+        self.description_text.pack(fill="both", expand=True, pady=(0, 10))
 
         # Automation options
         options_frame = ttk.LabelFrame(main_frame, text="Automation Options", padding=10)
-        options_frame.pack(fill=tk.X, pady=(0, 10))
+        options_frame.pack(fill="x", pady=(0, 10))
 
         self.auto_complete_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             options_frame,
             text="Auto Complete (complete without prompting)",
             variable=self.auto_complete_var
-        ).pack(anchor=tk.W)
+        ).pack(anchor="w")
 
         self.auto_chain_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             options_frame,
             text="Auto Chain (automatically progress to next agent)",
             variable=self.auto_chain_var
-        ).pack(anchor=tk.W)
+        ).pack(anchor="w")
 
         # Buttons
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=10)
 
-        ttk.Button(button_frame, text="Create Task", command=self.create_task).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Create & Start", command=self.create_and_start).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Create Task", command=self.create_task).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Create & Start", command=self.create_and_start).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side="left", padx=5)
 
         # Set initial focus
         self.dialog.after(100, self.title_entry.focus_set)
@@ -208,7 +208,7 @@ class CreateTaskDialog:
                 self.skills_frame,
                 text=f"This agent has {len(skills)} skill(s) available:",
                 font=('Arial', 9, 'bold')
-            ).pack(anchor=tk.W, pady=(0, 5))
+            ).pack(anchor="w", pady=(0, 5))
 
             # Get skill names from skills.json
             skills_data = self.queue.get_skills_list()
@@ -226,7 +226,7 @@ class CreateTaskDialog:
                             self.skills_frame,
                             text=f"  • {name} ({category})",
                             font=('Arial', 9)
-                        ).pack(anchor=tk.W, pady=1)
+                        ).pack(anchor="w", pady=1)
 
             # Preview button
             self.preview_btn = ttk.Button(
@@ -234,7 +234,7 @@ class CreateTaskDialog:
                 text="📄 Preview Full Skills Prompt",
                 command=self.preview_skills_prompt
             )
-            self.preview_btn.pack(anchor=tk.W, pady=(10, 0))
+            self.preview_btn.pack(anchor="w", pady=(10, 0))
 
         else:
             ttk.Label(
@@ -242,7 +242,7 @@ class CreateTaskDialog:
                 text="This agent has no skills assigned",
                 font=('Arial', 9),
                 foreground='gray'
-            ).pack(anchor=tk.W)
+            ).pack(anchor="w")
 
         # Update contract info
         contract = self.queue.get_agent_contract(agent_key)
@@ -276,14 +276,14 @@ class CreateTaskDialog:
 
             # Text widget with scrollbar
             text_frame = ttk.Frame(preview, padding=10)
-            text_frame.pack(fill=tk.BOTH, expand=True)
+            text_frame.pack(fill="both", expand=True)
 
-            text_widget = tk.Text(text_frame, wrap=tk.WORD, font=('Courier', 9))
-            scroll = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=text_widget.yview)
+            text_widget = tk.Text(text_frame, wrap="word", font=('Courier', 9))
+            scroll = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
             text_widget.configure(yscrollcommand=scroll.set)
 
-            text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-            scroll.pack(side=tk.RIGHT, fill=tk.Y)
+            text_widget.pack(side="left", fill="both", expand=True)
+            scroll.pack(side="right", fill="y")
 
             text_widget.insert('1.0', skills_prompt)
             text_widget.config(state=tk.DISABLED)
@@ -438,7 +438,7 @@ class CreateTaskDialog:
         progress.grab_set()
 
         progress_frame = ttk.Frame(progress, padding=20)
-        progress_frame.pack(fill=tk.BOTH, expand=True)
+        progress_frame.pack(fill="both", expand=True)
 
         ttk.Label(progress_frame, text="Calling Claude API...", font=('Arial', 10)).pack(pady=(0, 10))
         progress_bar = ttk.Progressbar(progress_frame, mode='indeterminate', length=250)

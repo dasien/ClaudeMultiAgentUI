@@ -29,17 +29,17 @@ class OperationsLogDialog:
     def build_ui(self):
         # Header
         header_frame = ttk.Frame(self.dialog, padding=10)
-        header_frame.pack(fill=tk.X)
+        header_frame.pack(fill="x")
 
-        ttk.Label(header_frame, text="Log File: .claude/logs/queue_operations.log").pack(side=tk.LEFT)
+        ttk.Label(header_frame, text="Log File: .claude/logs/queue_operations.log").pack(side="left")
 
         # Log text
         text_frame = ttk.Frame(self.dialog, padding=10)
-        text_frame.pack(fill=tk.BOTH, expand=True)
+        text_frame.pack(fill="both", expand=True)
 
-        self.text_widget = tk.Text(text_frame, wrap=tk.NONE, font=('Courier', 9))
-        scrollbar_y = ttk.Scrollbar(text_frame, orient=tk.VERTICAL, command=self.text_widget.yview)
-        scrollbar_x = ttk.Scrollbar(text_frame, orient=tk.HORIZONTAL, command=self.text_widget.xview)
+        self.text_widget = tk.Text(text_frame, wrap="none", font=('Courier', 9))
+        scrollbar_y = ttk.Scrollbar(text_frame, orient="vertical", command=self.text_widget.yview)
+        scrollbar_x = ttk.Scrollbar(text_frame, orient="horizontal", command=self.text_widget.xview)
         self.text_widget.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
 
         self.text_widget.grid(row=0, column=0, sticky='nsew')
@@ -51,13 +51,13 @@ class OperationsLogDialog:
 
         # Footer
         footer_frame = ttk.Frame(self.dialog, padding=10)
-        footer_frame.pack(fill=tk.X)
+        footer_frame.pack(fill="x")
 
         self.status_label = ttk.Label(footer_frame, text="")
-        self.status_label.pack(side=tk.LEFT)
+        self.status_label.pack(side="left")
 
-        ttk.Button(footer_frame, text="Refresh", command=self.load_log).pack(side=tk.LEFT, padx=5)
-        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(footer_frame, text="Refresh", command=self.load_log).pack(side="left", padx=5)
+        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def load_log(self):
         self.text_widget.config(state=tk.NORMAL)

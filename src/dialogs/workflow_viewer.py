@@ -34,10 +34,10 @@ class WorkflowStateViewer:
         """Build the UI."""
         # Main canvas for scrolling
         canvas = tk.Canvas(self.dialog)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        canvas.pack(side="left", fill="both", expand=True)
 
-        scrollbar = ttk.Scrollbar(self.dialog, orient=tk.VERTICAL, command=canvas.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar = ttk.Scrollbar(self.dialog, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
 
         canvas.configure(yscrollcommand=scrollbar.set)
         canvas.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
@@ -47,10 +47,10 @@ class WorkflowStateViewer:
 
         # Bottom buttons
         button_frame = ttk.Frame(self.dialog)
-        button_frame.pack(fill=tk.X, pady=10)
+        button_frame.pack(fill="x", pady=10)
 
-        ttk.Button(button_frame, text="Refresh", command=self.load_workflows).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Refresh", command=self.load_workflows).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def load_workflows(self):
         """Load and display all active workflows."""
@@ -108,18 +108,18 @@ class WorkflowStateViewer:
             text=f"Enhancement: {enhancement}",
             padding=15
         )
-        workflow_frame.pack(fill=tk.X, pady=(0, 15))
+        workflow_frame.pack(fill="x", pady=(0, 15))
 
         # Progress bar
         progress_frame = ttk.Frame(workflow_frame)
-        progress_frame.pack(fill=tk.X, pady=(0, 10))
+        progress_frame.pack(fill="x", pady=(0, 10))
 
         progress_pct = workflow_state['progress_percent']
         ttk.Label(
             progress_frame,
             text=f"{progress_pct}% complete",
             font=('Arial', 10, 'bold')
-        ).pack(side=tk.LEFT)
+        ).pack(side="left")
 
         progress_bar = ttk.Progressbar(
             progress_frame,
@@ -127,11 +127,11 @@ class WorkflowStateViewer:
             mode='determinate',
             value=progress_pct
         )
-        progress_bar.pack(side=tk.RIGHT, fill=tk.X, expand=True, padx=(10, 0))
+        progress_bar.pack(side="right", fill="x", expand=True, padx=(10, 0))
 
         # Workflow steps
         steps_frame = ttk.Frame(workflow_frame)
-        steps_frame.pack(fill=tk.X, pady=(10, 0))
+        steps_frame.pack(fill="x", pady=(10, 0))
 
         # Standard workflow order
         standard_agents = [
@@ -147,7 +147,7 @@ class WorkflowStateViewer:
             
             # Create step indicator
             step_frame = ttk.Frame(steps_frame)
-            step_frame.pack(anchor=tk.W, pady=2)
+            step_frame.pack(anchor="w", pady=2)
 
             # Status icon
             if step_state == 'completed':
@@ -174,7 +174,7 @@ class WorkflowStateViewer:
                 foreground=color,
                 width=2
             )
-            status_label.pack(side=tk.LEFT)
+            status_label.pack(side="left")
 
             agent_name = self.queue.get_agent_list().get(agent, agent)
             agent_label = ttk.Label(
@@ -182,7 +182,7 @@ class WorkflowStateViewer:
                 text=agent_name,
                 font=('Arial', 10)
             )
-            agent_label.pack(side=tk.LEFT, padx=(5, 0))
+            agent_label.pack(side="left", padx=(5, 0))
 
             # Show task info if exists
             agent_tasks = [t for t in tasks if t.assigned_agent == agent]
@@ -198,11 +198,11 @@ class WorkflowStateViewer:
                     text=info,
                     font=('Arial', 9),
                     foreground='gray'
-                ).pack(side=tk.LEFT, padx=(5, 0))
+                ).pack(side="left", padx=(5, 0))
 
         # Current status
         status_frame = ttk.Frame(workflow_frame)
-        status_frame.pack(fill=tk.X, pady=(10, 0))
+        status_frame.pack(fill="x", pady=(10, 0))
 
         status_text = workflow_state['status_text']
         status_color = workflow_state['status_color']
@@ -211,14 +211,14 @@ class WorkflowStateViewer:
             status_frame,
             text="Status:",
             font=('Arial', 9, 'bold')
-        ).pack(side=tk.LEFT)
+        ).pack(side="left")
 
         ttk.Label(
             status_frame,
             text=status_text,
             font=('Arial', 9),
             foreground=status_color
-        ).pack(side=tk.LEFT, padx=(5, 0))
+        ).pack(side="left", padx=(5, 0))
 
         # Show next agent if applicable
         if workflow_state['next_agent']:
@@ -231,7 +231,7 @@ class WorkflowStateViewer:
                 text=f"→ Next: {next_name}",
                 font=('Arial', 9),
                 foreground='blue'
-            ).pack(side=tk.LEFT, padx=(20, 0))
+            ).pack(side="left", padx=(20, 0))
 
     def analyze_workflow_state(self, tasks: List) -> Dict:
         """Analyze workflow state from tasks."""
