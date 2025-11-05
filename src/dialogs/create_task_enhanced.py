@@ -217,7 +217,7 @@ class CreateTaskDialog:
             if skills_data:
                 for skill_dir in skills:
                     skill_info = next(
-                        (s for s in skills_data.get('skills', []) 
+                        (s for s in skills_data.get('skills', [])
                          if s.get('skill-directory') == skill_dir),
                         None
                     )
@@ -340,7 +340,8 @@ class CreateTaskDialog:
 
         # Set description
         self.description_text.delete('1.0', tk.END)
-        self.description_text.insert('1.0', f"Quick workflow: {description}\n\nThis workflow will automatically progress through all phases.")
+        self.description_text.insert('1.0',
+                                     f"Quick workflow: {description}\n\nThis workflow will automatically progress through all phases.")
 
         # Focus on title for user to fill in
         self.title_entry.focus_set()
@@ -435,43 +436,48 @@ class CreateTaskDialog:
         context = "\n".join(context_parts)
 
         # Show working dialog
-        working_dialog = ClaudeWorkingDialog(
+        self.working_dialog = ClaudeWorkingDialog(
             self.dialog,
             "Generating task description",
             "15-30 seconds"
         )
-        working_dialog.show()
+        self.working_dialog.show()
 
         # Run API call in separate thread
         def api_thread():
             try:
                 generated = self.call_claude_api(context)
                 # Schedule UI update on main thread
-                self.dialog.after(0, lambda: self.on_generation_complete(generated, working_dialog))
-            except Exception as e:
-                # Schedule error handling on main thread
-                self.dialog.after(0, lambda: self.on_generation_error(e, working_dialog))
+                self.dialog.after(0, lambda: self.on_generation_complete(generated))
+            except Exception as error:
+                self.dialog.after(0, lambda err=error: self.on_generation_error(err))
 
         thread = threading.Thread(target=api_thread, daemon=True)
         thread.start()
 
-    def on_generation_complete(self, content, working_dialog):
+    def on_generation_complete(self, content):
         """Handle successful generation (runs on UI thread)."""
-        working_dialog.close()
+        self.working_dialog.close()
         self.description_text.delete('1.0', tk.END)
         self.description_text.insert('1.0', content)
 
-    def on_generation_error(self, error, working_dialog):
+    def on_generation_error(self, error):
         """Handle generation error (runs on UI thread)."""
-        working_dialog.close()
+        self.working_dialog.close()
         messagebox.showerror("API Error", f"Failed to generate: {error}")
 
     def call_claude_api(self, context_prompt: str) -> str:
         """Call Claude API to generate task description."""
-        api_key = self.settings.get_claude_api_key()
+        # Get Claude configuration from settings
         config = self.settings.get_claude_config()
+
+        api_key = config['api_key']
+        if not api_key:
+            raise Exception("Claude API key not configured")
+
         model = config['model']
         max_tokens = config['max_tokens']
+
         url = "https://api.anthropic.com/v1/messages"
         headers = {
             "x-api-key": api_key,
@@ -489,8 +495,9 @@ Include:
 - Acceptance criteria"""
 
         data = {
-            "model": model,  # Use configured model
-            "max_tokens": max_tokens,  # Use configured max tokens
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
             "messages": [{"role": "user", "content": context_prompt}]
         }
 

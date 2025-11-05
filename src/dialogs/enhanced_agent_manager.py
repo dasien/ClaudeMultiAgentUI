@@ -8,7 +8,9 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import json
 import re
-import urllib
+import urllib.request
+import threading
+from .claude_working_dialog import ClaudeWorkingDialog
 
 
 class EnhancedCreateEditAgentDialog:
@@ -89,6 +91,9 @@ class EnhancedCreateEditAgentDialog:
 
     def build_basic_tab(self, parent):
         """Build basic information tab."""
+        # Store reference to file entry for later access
+        self.file_entry = None
+
         # Name and File on same line
         name_file_frame = ttk.Frame(parent)
         name_file_frame.pack(fill="x", pady=(0, 15))
@@ -98,19 +103,37 @@ class EnhancedCreateEditAgentDialog:
         name_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ttk.Label(name_col, text="Agent Name: *", font=('Arial', 10, 'bold')).pack(anchor="w")
         self.name_var = tk.StringVar()
+        self.name_var.trace_add('write', self.on_name_changed)
         ttk.Entry(name_col, textvariable=self.name_var, width=30).pack(fill="x")
 
         # File column
         file_col = ttk.Frame(name_file_frame)
         file_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        ttk.Label(file_col, text="File Name (slug): *", font=('Arial', 10, 'bold')).pack(anchor="w")
-        self.file_var = tk.StringVar()
-        file_entry = ttk.Entry(file_col, textvariable=self.file_var, width=30)
-        file_entry.pack(fill="x")
-        if self.mode == 'edit':
-            file_entry.config(state='readonly')
 
-        ttk.Label(parent, text="(lowercase, hyphens only)", font=('Arial', 8), foreground='gray').pack(anchor="w", pady=(0, 15))
+        file_header = ttk.Frame(file_col)
+        file_header.pack(fill="x")
+
+        ttk.Label(file_header, text="File Name (slug): *", font=('Arial', 10, 'bold')).pack(side="left")
+
+        if self.mode == 'create':
+            self.auto_filename_var = tk.BooleanVar(value=True)
+            ttk.Checkbutton(
+                file_header,
+                text="Auto",
+                variable=self.auto_filename_var,
+                command=self.toggle_filename_auto
+            ).pack(side="right")
+
+        self.file_var = tk.StringVar()
+        self.file_entry = ttk.Entry(file_col, textvariable=self.file_var, width=30)
+        self.file_entry.pack(fill="x")
+        if self.mode == 'edit':
+            self.file_entry.config(state='readonly')
+        elif self.mode == 'create':
+            self.file_entry.config(state='readonly')  # Start as readonly when auto is on
+
+        ttk.Label(parent, text="(lowercase, hyphens only)", font=('Arial', 8), foreground='gray').pack(anchor="w",
+                                                                                                       pady=(0, 15))
 
         # Description - single line
         ttk.Label(parent, text="Description: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
@@ -125,7 +148,7 @@ class EnhancedCreateEditAgentDialog:
 
         api_key = self.settings.get_claude_api_key() if self.settings else None
         if api_key:
-            ttk.Button(details_header, text="Generate with AI", command=self.generate_details).pack(side="right")
+            ttk.Button(details_header, text="Generate with Claude", command=self.generate_details).pack(side="right")
 
         details_frame = ttk.Frame(parent)
         details_frame.pack(fill="both", expand=True)
@@ -143,7 +166,8 @@ class EnhancedCreateEditAgentDialog:
         ttk.Label(parent, text="Workflow Role: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.role_var = tk.StringVar()
         role_combo = ttk.Combobox(parent, textvariable=self.role_var, state='readonly', width=40)
-        role_combo['values'] = ['analysis', 'technical_design', 'implementation', 'testing', 'documentation', 'integration']
+        role_combo['values'] = ['analysis', 'technical_design', 'implementation', 'testing', 'documentation',
+                                'integration']
         role_combo.pack(fill="x", pady=(0, 15))
         role_combo.bind('<<ComboboxSelected>>', self.on_role_selected)
 
@@ -181,18 +205,34 @@ class EnhancedCreateEditAgentDialog:
 
         # Metadata Required
         self.metadata_required_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(parent, text="Require metadata header in outputs", variable=self.metadata_required_var).pack(anchor="w")
+        ttk.Checkbutton(parent, text="Require metadata header in outputs", variable=self.metadata_required_var).pack(
+            anchor="w")
 
     def build_tools_tab(self, parent):
         """Build tools selection tab."""
         ttk.Label(parent, text="Available Tools: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 10))
 
+        # Agent persona quick selection
+        if self.tools_data and 'agent_personas' in self.tools_data:
+            persona_frame = ttk.LabelFrame(parent, text="Quick Select from Persona", padding=10)
+            persona_frame.pack(fill="x", pady=(0, 15))
+
+            self.persona_var = tk.StringVar(value="")
+            persona_combo = ttk.Combobox(persona_frame, textvariable=self.persona_var, state='readonly', width=30)
+
+            personas = self.tools_data['agent_personas']
+            persona_names = ["(none)"] + [personas[p]['display_name'] for p in personas.keys()]
+            persona_combo['values'] = persona_names
+            persona_combo.pack(fill="x")
+            persona_combo.bind('<<ComboboxSelected>>', self.on_persona_selected)
+
+        # Tools grid
         tools_frame = ttk.Frame(parent)
         tools_frame.pack(fill="both", expand=True)
 
         if self.tools_data and 'claude_code_tools' in self.tools_data:
             tools_list = self.tools_data['claude_code_tools']
-            
+
             for idx, tool in enumerate(tools_list):
                 row = idx // 3
                 col = idx % 3
@@ -300,7 +340,7 @@ class EnhancedCreateEditAgentDialog:
         row = 0
         for skill in skills_list:
             category = skill.get('category', 'uncategorized')
-            
+
             # Apply filter
             if category_filter != 'All':
                 if category.replace('-', ' ').title() != category_filter:
@@ -412,7 +452,7 @@ class EnhancedCreateEditAgentDialog:
 
             self.persona_var = tk.StringVar(value="")
             persona_combo = ttk.Combobox(persona_frame, textvariable=self.persona_var, state='readonly', width=30)
-            
+
             personas = self.tools_data['agent_personas']
             persona_names = ["(none)"] + [personas[p]['display_name'] for p in personas.keys()]
             persona_combo['values'] = persona_names
@@ -425,7 +465,7 @@ class EnhancedCreateEditAgentDialog:
 
         if self.tools_data and 'claude_code_tools' in self.tools_data:
             tools_list = self.tools_data['claude_code_tools']
-            
+
             for idx, tool in enumerate(tools_list):
                 row = idx // 3
                 col = idx % 3
@@ -517,6 +557,35 @@ class EnhancedCreateEditAgentDialog:
         for tool_name in self.tool_checkboxes.keys():
             self.tool_checkboxes[tool_name].set(tool_name in persona_tools)
 
+    def on_name_changed(self, *args):
+        """Auto-generate filename from name if enabled."""
+        if self.mode == 'create' and self.auto_filename_var.get():
+            name = self.name_var.get().strip()
+            slug = self.name_to_slug(name)
+            self.file_var.set(slug)
+
+    def name_to_slug(self, name: str) -> str:
+        """Convert name to slug format."""
+        # Convert to lowercase
+        slug = name.lower()
+        # Replace spaces and underscores with hyphens
+        slug = re.sub(r'[\s_]+', '-', slug)
+        # Remove non-alphanumeric characters except hyphens
+        slug = re.sub(r'[^a-z0-9-]', '', slug)
+        # Remove multiple consecutive hyphens
+        slug = re.sub(r'-+', '-', slug)
+        # Strip leading/trailing hyphens
+        slug = slug.strip('-')
+        return slug
+
+    def toggle_filename_auto(self):
+        """Toggle auto-generation of filename."""
+        if self.auto_filename_var.get():
+            self.file_entry.config(state='readonly')
+            self.on_name_changed()
+        else:
+            self.file_entry.config(state='normal')
+
     def generate_details(self):
         """Generate agent details with AI."""
         name = self.name_var.get().strip()
@@ -526,21 +595,7 @@ class EnhancedCreateEditAgentDialog:
             messagebox.showwarning("Missing Info", "Enter name and description first.")
             return
 
-        # Show progress
-        progress = tk.Toplevel(self.dialog)
-        progress.title("Generating")
-        progress.geometry("300x80")
-        progress.transient(self.dialog)
-        progress.grab_set()
-
-        ttk.Label(progress, text="Calling Claude API...").pack(pady=10)
-        pb = ttk.Progressbar(progress, mode='indeterminate', length=200)
-        pb.pack()
-        pb.start()
-        progress.update()
-
-        try:
-            context = f"""Agent: {name}
+        context = f"""Agent: {name}
 Description: {description}
 
 Generate comprehensive agent role definition with:
@@ -551,23 +606,46 @@ Generate comprehensive agent role definition with:
 - Success Criteria
 - Scope Boundaries (DO/DON'T)"""
 
-            details = self.call_claude_api(context)
-            progress.destroy()
+        # Show working dialog
+        self.working_dialog = ClaudeWorkingDialog(
+            self.dialog,
+            "Generating agent role definition",
+            "30-60 seconds"
+        )
+        self.working_dialog.show()
 
-            self.details_text.delete('1.0', tk.END)
-            self.details_text.insert('1.0', details)
+        # Run API call in separate thread
+        def api_thread():
+            try:
+                details = self.call_claude_api(context)
+                # Schedule UI update on main thread
+                self.dialog.after(0, lambda: self.on_generation_complete(details))
+            except Exception as error:
+                # Schedule error handling on main thread
+                self.dialog.after(0, lambda err=error: self.on_generation_error(err))
 
-        except Exception as e:
-            progress.destroy()
-            messagebox.showerror("Error", f"AI generation failed: {e}")
+        thread = threading.Thread(target=api_thread, daemon=True)
+        thread.start()
 
-    def call_claude_api(self, context_prompt: str) -> str:
+    def on_generation_complete(self, content):
+        """Handle successful generation (runs on UI thread)."""
+        self.working_dialog.close()
+        self.details_text.delete('1.0', tk.END)
+        self.details_text.insert('1.0', content)
+
+    def on_generation_error(self, error):
+        """Handle generation error (runs on UI thread)."""
+        self.working_dialog.close()
+        messagebox.showerror("Error", f"AI generation failed: {error}")
+
+    def call_claude_api(self, context: str) -> str:
         """Call Claude API."""
-        api_key = self.settings.get_claude_api_key() if self.settings else None
-        if not api_key:
-            raise Exception("No API key")
+        # Get Claude configuration from settings
+        config = self.settings.get_claude_config() if self.settings else None
+        if not config or not config.get('api_key'):
+            raise Exception("No API key configured")
 
-        config = self.settings.get_claude_config()
+        api_key = config['api_key']
         model = config['model']
         max_tokens = config['max_tokens']
 
@@ -579,13 +657,13 @@ Generate comprehensive agent role definition with:
         }
 
         data = {
-            "model": model,  # Use configured model
-            "max_tokens": max_tokens,  # Use configured max tokens
-            "messages": [{"role": "user", "content": context_prompt}]
+            "model": model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": context}]
         }
 
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=90) as response:
             result = json.loads(response.read().decode('utf-8'))
             return result['content'][0]['text']
 

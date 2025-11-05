@@ -10,7 +10,9 @@ import urllib.request
 import re
 from datetime import date
 import threading
+
 from .claude_working_dialog import ClaudeWorkingDialog
+
 
 class EnhancementGeneratorDialog:
     """Dialog for generating enhancement files with Claude API."""
@@ -313,11 +315,12 @@ class EnhancementGeneratorDialog:
         context = self.build_generation_context(title, description)
 
         # Show working dialog
-        working_dialog = ClaudeWorkingDialog(
+        self.working_dialog = ClaudeWorkingDialog(
             self.dialog,
             "Generating enhancement specification",
             "30-60 seconds"
-        ).show()
+        )
+        self.working_dialog.show()
 
         # Run API call in separate thread
         def api_thread():
@@ -325,23 +328,22 @@ class EnhancementGeneratorDialog:
                 generated_content = self.call_claude_api(context)
                 # Schedule UI update on main thread
                 self.dialog.after(0, lambda: self.on_generation_complete(
-                    generated_content, title, filename, directory, working_dialog
+                    generated_content, title, filename, directory
                 ))
-            except Exception as e:
-                # Schedule error handling on main thread
-                self.dialog.after(0, lambda: self.on_generation_error(e, working_dialog))
+            except Exception as error:
+                self.dialog.after(0, lambda err=error: self.on_generation_error(err))
 
         thread = threading.Thread(target=api_thread, daemon=True)
         thread.start()
 
-    def on_generation_complete(self, content, title, filename, directory, working_dialog):
+    def on_generation_complete(self, content, title, filename, directory):
         """Handle successful generation (runs on UI thread)."""
-        working_dialog.close()
+        self.working_dialog.close()
         self.show_preview(content, title, filename, directory)
 
-    def on_generation_error(self, error, working_dialog):
+    def on_generation_error(self, error):
         """Handle generation error (runs on UI thread)."""
-        working_dialog.close()
+        self.working_dialog.close()
         messagebox.showerror("Generation Error", f"Failed to generate enhancement:\n\n{error}")
 
     def build_generation_context(self, title: str, description: str) -> str:
@@ -376,12 +378,10 @@ class EnhancementGeneratorDialog:
 
         return "\n".join(context_parts)
 
-    def call_claude_api(self, context_prompt: str) -> str:
+    def call_claude_api(self, context: str) -> str:
         """Call Claude API to generate enhancement."""
         api_key = self.settings.get_claude_api_key()
-        config = self.settings.get_claude_config()
-        model = config['model']
-        max_tokens = config['max_tokens']
+
         url = "https://api.anthropic.com/v1/messages"
         headers = {
             "x-api-key": api_key,
@@ -481,9 +481,10 @@ As a [type of user], I want [goal] so that [benefit].
 Generate detailed, comprehensive content for each section. Be specific and actionable."""
 
         data = {
-            "model": model,  # Use configured model
-            "max_tokens": max_tokens,  # Use configured max tokens
-            "messages": [{"role": "user", "content": context_prompt}]
+            "model": "claude-opus-4-20250514",  # Use Opus for 16K output
+            "max_tokens": 16384,
+            "system": system_prompt,
+            "messages": [{"role": "user", "content": context}]
         }
 
         req = urllib.request.Request(
