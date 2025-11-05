@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
 
+from .base_dialog import BaseDialog
 from ..config import Config
 
 try:
@@ -15,26 +16,16 @@ except ImportError:
     PIL_AVAILABLE = False
 
 
-class AboutDialog:
+class AboutDialog(BaseDialog):
     """About dialog."""
 
     def __init__(self, parent):
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("About")
-        self.dialog.geometry("500x400")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        self.dialog.resizable(False, False)
-
-        # Center on parent
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
+        super().__init__(parent, "About", 500, 400, resizable=False)
         self.build_ui()
+        # Don't call show() - about dialogs don't return results
 
     def build_ui(self):
+        """Build the about dialog UI."""
         main_frame = ttk.Frame(self.dialog, padding=30)
         main_frame.pack(fill="both", expand=True)
 
@@ -61,7 +52,7 @@ class AboutDialog:
 
         ttk.Label(
             main_frame,
-            text="Version 1.0.3",
+            text=f"Version {Config.VERSION}",
             font=('Arial', 12)
         ).pack(pady=5)
 
@@ -100,5 +91,5 @@ class AboutDialog:
         ttk.Button(
             main_frame,
             text="Close",
-            command=self.dialog.destroy
+            command=self.dialog.destroy  # Just destroy, no result
         ).pack(pady=20)

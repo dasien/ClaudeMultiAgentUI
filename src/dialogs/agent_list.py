@@ -1,6 +1,5 @@
 """
 Agent Manager dialog for viewing and managing agents.
-v3.0 - Updated to use enhanced agent editor.
 """
 
 import tkinter as tk
@@ -8,32 +7,25 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import json
 
+from .base_dialog import BaseDialog
 
-class AgentManagerDialog:
+
+class AgentListDialog(BaseDialog):
     """Dialog for managing agents (create, edit, delete)."""
 
     def __init__(self, parent, queue_interface, settings=None):
+        super().__init__(parent, "Agent Manager", 900, 600)
         self.queue = queue_interface
         self.settings = settings
         self.agents_file = self.queue.agents_file
         self.agents_dir = self.queue.agents_file.parent
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Agent Manager")
-        self.dialog.geometry("900x600")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
         self.build_ui()
         self.load_agents()
+        # Don't call show() - this dialog doesn't return a result
 
     def build_ui(self):
+        """Build the agent manager UI."""
         main_frame = ttk.Frame(self.dialog, padding=20)
         main_frame.pack(fill="both", expand=True)
 
@@ -54,12 +46,12 @@ class AgentManagerDialog:
 
         self.agent_tree.heading('name', text='Name')
         self.agent_tree.heading('file', text='File')
-        self.agent_tree.heading('skills_count', text='Skills')  # NEW
+        self.agent_tree.heading('skills_count', text='Skills')
         self.agent_tree.heading('description', text='Description')
 
         self.agent_tree.column('name', width=180)
         self.agent_tree.column('file', width=150)
-        self.agent_tree.column('skills_count', width=60)  # NEW
+        self.agent_tree.column('skills_count', width=60)
         self.agent_tree.column('description', width=400)
 
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.agent_tree.yview)
@@ -71,15 +63,14 @@ class AgentManagerDialog:
         # Bind double-click
         self.agent_tree.bind('<Double-Button-1>', lambda e: self.edit_agent())
 
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=10)
-
-        ttk.Button(button_frame, text="Create New Agent", command=self.create_agent).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Edit Selected", command=self.edit_agent).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Delete Selected", command=self.delete_agent).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Refresh", command=self.load_agents).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
+        # Buttons - Using BaseDialog helper
+        self.create_button_frame(main_frame, [
+            ("Create New Agent", self.create_agent),
+            ("Edit Selected", self.edit_agent),
+            ("Delete Selected", self.delete_agent),
+            ("Refresh", self.load_agents),
+            ("Close", self.dialog.destroy)
+        ])
 
     def load_agents(self):
         """Load agents from agents.json."""
@@ -101,7 +92,7 @@ class AgentManagerDialog:
                 agent_file = agent.get('agent-file', '')
                 description = agent.get('description', '')
 
-                # NEW: Show skills count
+                # Show skills count
                 skills = agent.get('skills', [])
                 skills_count = len(skills) if skills else 0
 
@@ -116,9 +107,8 @@ class AgentManagerDialog:
 
     def create_agent(self):
         """Open dialog to create a new agent."""
-        # UPDATED: Use enhanced version
-        from .enhanced_agent_manager import EnhancedCreateEditAgentDialog
-        dialog = EnhancedCreateEditAgentDialog(
+        from .agent_details import AgentDetailsDialog
+        dialog = AgentDetailsDialog(
             self.dialog,
             self.queue,
             self.settings,
@@ -138,9 +128,8 @@ class AgentManagerDialog:
         values = self.agent_tree.item(item, 'values')
         agent_file = values[1]
 
-        # UPDATED: Use enhanced version
-        from .enhanced_agent_manager import EnhancedCreateEditAgentDialog
-        dialog = EnhancedCreateEditAgentDialog(
+        from .agent_details import AgentDetailsDialog
+        dialog = AgentDetailsDialog(
             self.dialog,
             self.queue,
             self.settings,

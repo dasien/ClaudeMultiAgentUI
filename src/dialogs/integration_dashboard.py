@@ -4,32 +4,24 @@ Integration Dashboard - View and manage GitHub/Jira/Confluence sync status.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import List, Dict, Optional  # FIXED: Added Optional
+from typing import List, Dict, Optional
+
+from .base_dialog import BaseDialog
 
 
-class IntegrationDashboard:
+class IntegrationDashboardDialog(BaseDialog):
     """Dashboard for viewing integration status with external systems."""
 
     def __init__(self, parent, queue_interface):
+        super().__init__(parent, "Integration Dashboard", 1100, 700)
         self.queue = queue_interface
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Integration Dashboard")
-        self.dialog.geometry("1100x700")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
 
         self.build_ui()
         self.load_integration_status()
+        # Don't call show() - dashboard doesn't return a result
 
     def build_ui(self):
-        """Build the UI."""
+        """Build the integration dashboard UI."""
         # Header
         header_frame = ttk.Frame(self.dialog, padding=10)
         header_frame.pack(fill="x")
@@ -100,24 +92,20 @@ class IntegrationDashboard:
         self.integration_tree.tag_configure('unsynced', background='#FFF9E6')
         self.integration_tree.tag_configure('failed', background='#FFEBEE')
 
-        # Bottom buttons
-        button_frame = ttk.Frame(self.dialog, padding=10)
-        button_frame.pack(fill="x")
-
-        ttk.Button(button_frame, text="Sync All Unsynced", command=self.sync_all).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Refresh", command=self.load_integration_status).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
+        # Bottom buttons - Using BaseDialog helper
+        self.create_button_frame(self.dialog, [
+            ("Sync All Unsynced", self.sync_all),
+            ("Refresh", self.load_integration_status),
+            ("Close", self.dialog.destroy)
+        ])
 
     def load_integration_status(self):
         """Load and display integration status for all tasks."""
-        # Clear current
         for item in self.integration_tree.get_children():
             self.integration_tree.delete(item)
 
         try:
             queue_state = self.queue.get_queue_state()
-
-            # Get all completed tasks (these are the ones that should be synced)
             completed_tasks = queue_state.completed_tasks
 
             total = 0
@@ -126,49 +114,39 @@ class IntegrationDashboard:
             failed = 0
 
             for task in completed_tasks:
-                # Extract enhancement name
                 enhancement = self._extract_enhancement(task.source_file)
 
-                # Get metadata
                 metadata = task.metadata or {}
                 github_issue = metadata.get('github_issue')
                 jira_ticket = metadata.get('jira_ticket')
                 confluence_page = metadata.get('confluence_page')
 
-                # Determine sync status
                 has_github = bool(github_issue and github_issue != 'null')
                 has_jira = bool(jira_ticket and jira_ticket != 'null')
                 has_confluence = bool(confluence_page and confluence_page != 'null')
 
-                # Check if integration was attempted
                 github_display = f"#{github_issue}" if has_github else "—"
                 jira_display = jira_ticket if has_jira else "—"
                 confluence_display = "✓" if has_confluence else "—"
 
                 # Determine overall sync status
                 if task.result and 'INTEGRATION_COMPLETE' in task.result:
-                    sync_status = "Complete"
-                    tag = 'synced'
+                    sync_status, tag = "Complete", 'synced'
                     synced += 1
                 elif task.result and 'INTEGRATION_FAILED' in task.result:
-                    sync_status = "Failed"
-                    tag = 'failed'
+                    sync_status, tag = "Failed", 'failed'
                     failed += 1
                 elif has_github or has_jira or has_confluence:
-                    sync_status = "Partial"
-                    tag = 'synced'
+                    sync_status, tag = "Partial", 'synced'
                     synced += 1
                 elif self._needs_integration(task.result):
-                    sync_status = "Not Synced"
-                    tag = 'unsynced'
+                    sync_status, tag = "Not Synced", 'unsynced'
                     unsynced += 1
                 else:
-                    sync_status = "N/A"
-                    tag = ''
+                    sync_status, tag = "N/A", ''
 
                 total += 1
 
-                # Insert row
                 self.integration_tree.insert(
                     '',
                     tk.END,
@@ -210,7 +188,6 @@ class IntegrationDashboard:
         jira = values[5]
         sync_status = values[7]
 
-        # Sync option
         if sync_status == "Not Synced":
             menu.add_command(
                 label="Sync to External Systems",
@@ -218,7 +195,6 @@ class IntegrationDashboard:
             )
             menu.add_separator()
 
-        # Open external links
         if github != "—":
             menu.add_command(
                 label=f"Open GitHub Issue {github}",
@@ -272,12 +248,10 @@ class IntegrationDashboard:
 
     def open_github_issue(self, issue_num: str):
         """Open GitHub issue in browser."""
-        # Would need GitHub config to build URL
         messagebox.showinfo("GitHub", f"Would open issue {issue_num}\n(URL building requires GitHub config)")
 
     def open_jira_ticket(self, ticket: str):
         """Open Jira ticket in browser."""
-        # Would need Jira config to build URL
         messagebox.showinfo("Jira", f"Would open ticket {ticket}\n(URL building requires Jira config)")
 
     def _extract_enhancement(self, source_file: str) -> str:

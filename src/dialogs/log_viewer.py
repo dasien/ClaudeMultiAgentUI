@@ -1,32 +1,26 @@
 """
 Operations log dialog for viewing queue operations log.
+REFACTORED to use BaseDialog.
 """
 
 import tkinter as tk
 from tkinter import ttk
 
+from .base_dialog import BaseDialog
 
-class OperationsLogDialog:
+
+class LogViewerDialog(BaseDialog):
     """Dialog for viewing operations log."""
 
     def __init__(self, parent, queue_interface):
+        super().__init__(parent, "Queue Operations Log", 900, 600)
         self.queue = queue_interface
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Queue Operations Log")
-        self.dialog.geometry("900x600")
-        self.dialog.transient(parent)
-
-        # Center on parent
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
         self.build_ui()
         self.load_log()
+        # Don't call show() - log dialogs don't return results
 
     def build_ui(self):
+        """Build the operations log UI."""
         # Header
         header_frame = ttk.Frame(self.dialog, padding=10)
         header_frame.pack(fill="x")
@@ -56,10 +50,15 @@ class OperationsLogDialog:
         self.status_label = ttk.Label(footer_frame, text="")
         self.status_label.pack(side="left")
 
-        ttk.Button(footer_frame, text="Refresh", command=self.load_log).pack(side="left", padx=5)
-        ttk.Button(footer_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
+        # Buttons - Using BaseDialog helper
+        button_frame = ttk.Frame(footer_frame)
+        button_frame.pack(side="right")
+
+        ttk.Button(button_frame, text="Refresh", command=self.load_log).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def load_log(self):
+        """Load and display operations log."""
         self.text_widget.config(state=tk.NORMAL)
         self.text_widget.delete('1.0', tk.END)
 

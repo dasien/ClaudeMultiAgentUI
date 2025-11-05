@@ -8,7 +8,7 @@ from tkinter import ttk
 import random
 
 
-class ClaudeWorkingDialog:
+class WorkingDialog:
     """Animated progress dialog with Claude's whimsical working messages."""
 
     # Unicode spinner frames (braille patterns)

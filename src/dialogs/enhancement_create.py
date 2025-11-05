@@ -1,48 +1,29 @@
 """
 Enhancement Generator Dialog - Create enhancement files with Claude API assistance.
+REFACTORED to use BaseDialog and ClaudeGeneratorMixin.
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-import json
-import urllib.request
-import re
-from datetime import date
-import threading
-
-from .claude_working_dialog import ClaudeWorkingDialog
+from .base_dialog import BaseDialog
+from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
+from src.utils import to_slug, validate_slug, PathUtils
 
 
-class EnhancementGeneratorDialog:
+class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
     """Dialog for generating enhancement files with Claude API."""
 
     def __init__(self, parent, queue_interface, settings):
+        # Initialize both base classes
+        BaseDialog.__init__(self, parent, "Generate New Enhancement", 750, 700)
+        ClaudeGeneratorMixin.__init__(self, settings)
+
         self.queue = queue_interface
-        self.settings = settings
-        self.result = None  # Path to created file
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Generate New Enhancement")
-        self.dialog.geometry("750x700")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center on parent
-        self.center_on_parent(parent)
-
-        # Reference files list
         self.reference_files = []
 
         self.build_ui()
-        self.dialog.wait_window()
-
-    def center_on_parent(self, parent):
-        """Center dialog on parent window."""
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
+        self.show()  # From BaseDialog - cleaner!
 
     def build_ui(self):
         """Build the dialog UI."""
@@ -56,14 +37,16 @@ class EnhancementGeneratorDialog:
             font=('Arial', 12, 'bold')
         ).pack(pady=(0, 15))
 
-        # Enhancement Title
-        ttk.Label(main_frame, text="Enhancement Title: *").pack(anchor="w")
-        self.title_var = tk.StringVar()
+        # Enhancement Title - Using BaseDialog helper
+        _, self.title_entry, self.title_var = self.create_label_entry_pair(
+            main_frame,
+            "Enhancement Title",
+            width=70,
+            required=True
+        )
         self.title_var.trace_add('write', self.on_title_changed)
-        self.title_entry = ttk.Entry(main_frame, textvariable=self.title_var, width=70)
-        self.title_entry.pack(fill="x", pady=(0, 10))
 
-        # Filename
+        # Filename with auto-generate
         filename_frame = ttk.Frame(main_frame)
         filename_frame.pack(fill="x", pady=(0, 5))
 
@@ -160,41 +143,24 @@ class EnhancementGeneratorDialog:
         )
         self.generate_btn.pack(pady=10)
 
-        # Bottom buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=(10, 0))
-
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side="left", padx=5)
+        # Bottom buttons - Using BaseDialog helper
+        self.create_button_frame(main_frame, [("Cancel", self.cancel)])
 
         ttk.Label(main_frame, text="* Required fields", font=('Arial', 8), foreground='gray').pack(pady=(10, 0))
 
         # Validate initially
         self.validate_form()
 
-        # Set focus
-        self.dialog.after(100, self.title_entry.focus_set)
+        # Set focus - Using BaseDialog helper
+        self.set_focus(self.title_entry)
 
     def on_title_changed(self, *args):
         """Auto-generate filename from title if enabled."""
         if self.auto_filename_var.get():
             title = self.title_var.get().strip()
-            slug = self.title_to_slug(title)
+            slug = to_slug(title)  # Using utility function!
             self.filename_var.set(slug)
         self.validate_form()
-
-    def title_to_slug(self, title: str) -> str:
-        """Convert title to slug format."""
-        # Convert to lowercase
-        slug = title.lower()
-        # Replace spaces and underscores with hyphens
-        slug = re.sub(r'[\s_]+', '-', slug)
-        # Remove non-alphanumeric characters except hyphens
-        slug = re.sub(r'[^a-z0-9-]', '', slug)
-        # Remove multiple consecutive hyphens
-        slug = re.sub(r'-+', '-', slug)
-        # Strip leading/trailing hyphens
-        slug = slug.strip('-')
-        return slug
 
     def toggle_filename_auto(self):
         """Toggle auto-generation of filename."""
@@ -232,12 +198,9 @@ class EnhancementGeneratorDialog:
         for file in files:
             if file not in self.reference_files:
                 self.reference_files.append(file)
-                # Show relative path if possible
-                try:
-                    rel_path = Path(file).relative_to(self.queue.project_root)
-                    self.ref_listbox.insert(tk.END, str(rel_path))
-                except ValueError:
-                    self.ref_listbox.insert(tk.END, file)
+                # Using PathUtils!
+                rel_path = PathUtils.relative_or_name(Path(file), self.queue.project_root)
+                self.ref_listbox.insert(tk.END, rel_path)
 
     def remove_reference_file(self):
         """Remove selected reference file."""
@@ -260,11 +223,11 @@ class EnhancementGeneratorDialog:
 
         # Check required fields
         has_title = bool(title)
-        has_filename = bool(filename) and self.is_valid_slug(filename)
-        has_description = bool(description)  # Just needs any content
+        has_filename = bool(filename) and validate_slug(filename)  # Using utility!
+        has_description = bool(description)
 
         # Update filename validation label
-        if filename and not self.is_valid_slug(filename):
+        if filename and not validate_slug(filename):  # Using utility!
             self.filename_validation_label.config(
                 text="✗ Invalid format (use lowercase and hyphens only)",
                 foreground='red'
@@ -289,22 +252,8 @@ class EnhancementGeneratorDialog:
         # Schedule next validation
         self.dialog.after(500, self.validate_form)
 
-    def is_valid_slug(self, slug: str) -> bool:
-        """Check if slug is valid format."""
-        return bool(re.match(r'^[a-z0-9-]+$', slug))
-
     def generate_enhancement(self):
         """Generate enhancement file with Claude API."""
-        # Check API key
-        api_key = self.settings.get_claude_api_key()
-        if not api_key:
-            messagebox.showwarning(
-                "No API Key",
-                "Claude API key not configured.\n\n"
-                "Go to Settings > Configure Claude API Key..."
-            )
-            return
-
         # Gather form data
         title = self.title_var.get().strip()
         filename = self.filename_var.get().strip()
@@ -313,81 +262,6 @@ class EnhancementGeneratorDialog:
 
         # Build context for Claude
         context = self.build_generation_context(title, description)
-
-        # Show working dialog
-        self.working_dialog = ClaudeWorkingDialog(
-            self.dialog,
-            "Generating enhancement specification",
-            "30-60 seconds"
-        )
-        self.working_dialog.show()
-
-        # Run API call in separate thread
-        def api_thread():
-            try:
-                generated_content = self.call_claude_api(context)
-                # Schedule UI update on main thread
-                self.dialog.after(0, lambda: self.on_generation_complete(
-                    generated_content, title, filename, directory
-                ))
-            except Exception as error:
-                self.dialog.after(0, lambda err=error: self.on_generation_error(err))
-
-        thread = threading.Thread(target=api_thread, daemon=True)
-        thread.start()
-
-    def on_generation_complete(self, content, title, filename, directory):
-        """Handle successful generation (runs on UI thread)."""
-        self.working_dialog.close()
-        self.show_preview(content, title, filename, directory)
-
-    def on_generation_error(self, error):
-        """Handle generation error (runs on UI thread)."""
-        self.working_dialog.close()
-        messagebox.showerror("Generation Error", f"Failed to generate enhancement:\n\n{error}")
-
-    def build_generation_context(self, title: str, description: str) -> str:
-        """Build context for Claude API."""
-        context_parts = [
-            f"Enhancement Title: {title}",
-            f"\nDescription: {description}"
-        ]
-
-        # Add reference files content
-        if self.reference_files:
-            context_parts.append("\n\nReference Documents:")
-            for file_path in self.reference_files:
-                try:
-                    path = Path(file_path)
-                    if path.exists() and path.stat().st_size < 100_000:  # Max 100KB per file
-                        with open(path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                            if len(content) > 10_000:  # Truncate large files
-                                content = content[:10_000] + "\n...[truncated]"
-
-                            # Show relative path if possible
-                            try:
-                                rel_path = path.relative_to(self.queue.project_root)
-                                context_parts.append(f"\n--- {rel_path} ---")
-                            except ValueError:
-                                context_parts.append(f"\n--- {path.name} ---")
-
-                            context_parts.append(content)
-                except Exception as e:
-                    print(f"Could not read reference file {file_path}: {e}")
-
-        return "\n".join(context_parts)
-
-    def call_claude_api(self, context: str) -> str:
-        """Call Claude API to generate enhancement."""
-        api_key = self.settings.get_claude_api_key()
-
-        url = "https://api.anthropic.com/v1/messages"
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
 
         system_prompt = """You are an expert technical writer creating detailed enhancement specifications.
 
@@ -409,94 +283,56 @@ priority: medium
 **User Story:**
 As a [type of user], I want [goal] so that [benefit].
 
-## Context & Background
-**Current State:**
-- What exists today
-- Why this enhancement is needed
-
-**Technical Context:**
-- Target platform/environment
-- Dependencies
-- Integration points
-
-## Requirements
-
-### Functional Requirements
-1. [Specific capability]
-2. [Another requirement]
-
-### Non-Functional Requirements
-- **Performance:** [metrics]
-- **Memory:** [constraints]
-- **Reliability:** [requirements]
-
-### Must Have (MVP)
-- [ ] Feature X
-- [ ] Feature Y
-
-### Should Have (if time permits)
-- [ ] Enhancement A
-
-### Won't Have (out of scope)
-- Feature X (reason)
-
-## Open Questions
-1. [Question about design approach]
-2. [Question about requirements]
-
-## Constraints & Limitations
-**Technical Constraints:**
-- [Constraint 1]
-
-**Business/Timeline Constraints:**
-- [Constraint 1]
-
-## Success Criteria
-**Definition of Done:**
-- [ ] Criteria 1
-- [ ] Criteria 2
-
-**Acceptance Tests:**
-1. Given [state], when [action], then [result]
-
-## Security & Safety Considerations
-- Data validation requirements
-- Error handling approach
-- Potential risks and mitigations
-
-## Testing Strategy
-**Unit Tests:**
-- [Test area 1]
-
-**Integration Tests:**
-- [Test scenario 1]
-
-**Manual Test Scenarios:**
-1. [Step-by-step test]
-
-## References & Research
-- [Link to relevant documentation]
-- [Similar implementations]
+[Include all standard sections: Context, Requirements, Constraints, Testing, etc.]
 
 Generate detailed, comprehensive content for each section. Be specific and actionable."""
 
-        data = {
-            "model": "claude-opus-4-20250514",  # Use Opus for 16K output
-            "max_tokens": 16384,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": context}]
-        }
-
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(data).encode('utf-8'),
-            headers=headers,
-            method='POST'
+        # Using ClaudeGeneratorMixin - Much simpler!
+        self.call_claude_async(
+            context=context,
+            system_prompt=system_prompt,
+            message="Generating enhancement specification",
+            estimate="30-60 seconds",
+            timeout=60,
+            on_success=lambda content: self.on_generation_complete(content, title, filename, directory),
+            on_error=self.on_generation_error
         )
 
-        with urllib.request.urlopen(req, timeout=60) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            return result['content'][0]['text']
+    def on_generation_complete(self, content: str, title: str, filename: str, directory: str):
+        """Handle successful generation."""
+        self.show_preview(content, title, filename, directory)
+
+    def on_generation_error(self, error: Exception):
+        """Handle generation error."""
+        messagebox.showerror("Generation Error", f"Failed to generate enhancement:\n\n{error}")
+
+    def build_generation_context(self, title: str, description: str) -> str:
+        """Build context for Claude API."""
+        context_parts = [
+            f"Enhancement Title: {title}",
+            f"\nDescription: {description}"
+        ]
+
+        # Add reference files content
+        if self.reference_files:
+            context_parts.append("\n\nReference Documents:")
+            for file_path in self.reference_files:
+                try:
+                    path = Path(file_path)
+                    if path.exists() and path.stat().st_size < 100_000:
+                        with open(path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                            if len(content) > 10_000:
+                                content = content[:10_000] + "\n...[truncated]"
+
+                            # Using PathUtils!
+                            rel_path = PathUtils.relative_or_name(path, self.queue.project_root)
+                            context_parts.append(f"\n--- {rel_path} ---")
+                            context_parts.append(content)
+                except Exception as e:
+                    print(f"Could not read reference file {file_path}: {e}")
+
+        return "\n".join(context_parts)
 
     def show_preview(self, content: str, title: str, filename: str, directory: str):
         """Show preview of generated enhancement."""
@@ -506,7 +342,7 @@ Generate detailed, comprehensive content for each section. Be specific and actio
         preview.transient(self.dialog)
         preview.grab_set()
 
-        # Center
+        # Center - could use BaseDialog if preview was a BaseDialog subclass
         preview.update_idletasks()
         x = self.dialog.winfo_x() + (self.dialog.winfo_width() // 2) - (preview.winfo_width() // 2)
         y = self.dialog.winfo_y() + (self.dialog.winfo_height() // 2) - (preview.winfo_height() // 2)
@@ -563,9 +399,9 @@ Generate detailed, comprehensive content for each section. Be specific and actio
                     f"Enhancement saved successfully!\n\n{output_file}"
                 )
 
-                self.result = str(output_file)
+                # Use BaseDialog.close() with result
+                self.close(result=str(output_file))
                 preview.destroy()
-                self.dialog.destroy()
 
             except Exception as e:
                 messagebox.showerror("Save Error", f"Failed to save enhancement:\n\n{e}")
@@ -584,8 +420,3 @@ Generate detailed, comprehensive content for each section. Be specific and actio
             font=('Arial', 8),
             foreground='gray'
         ).pack()
-
-    def cancel(self):
-        """Cancel dialog."""
-        self.result = None
-        self.dialog.destroy()

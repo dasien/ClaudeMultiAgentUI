@@ -6,45 +6,32 @@ v3.0 - Includes skills display and workflow templates.
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-import json
-import urllib.request
-import threading
-from .claude_working_dialog import ClaudeWorkingDialog
+
+from .base_dialog import BaseDialog
+from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
+from ..utils import PathUtils
 
 
-class CreateTaskDialog:
+class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
     """Enhanced dialog for creating tasks with skills preview and quick workflows."""
 
     def __init__(self, parent, queue_interface, settings=None):
+        # Initialize base classes
+        BaseDialog.__init__(self, parent, "Create New Task", 700, 850)
+        ClaudeGeneratorMixin.__init__(self, settings)
+
         self.queue = queue_interface
-        self.settings = settings
-        self.result = None
         self.should_start = False
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Create New Task")
-        self.dialog.geometry("700x850")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center on parent
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
 
         # Get agents map
         self.agents_map = self.queue.get_agent_list()
         self.task_types_map = self.queue.get_task_types()
 
         self.build_ui()
-
-        # Wait for dialog
-        self.dialog.wait_window()
+        self.show()
 
     def build_ui(self):
         """Build the UI."""
-        # Simple frame without scrolling
         main_frame = ttk.Frame(self.dialog, padding=20)
         main_frame.pack(fill="both", expand=True)
 
@@ -54,7 +41,7 @@ class CreateTaskDialog:
         self.title_entry = ttk.Entry(main_frame, textvariable=self.title_var, width=70)
         self.title_entry.pack(fill="x", pady=(0, 5))
 
-        # Workflow and Agent on same line (like Priority and Task Type)
+        # Workflow and Agent on same line
         workflow_agent_frame = ttk.Frame(main_frame)
         workflow_agent_frame.pack(fill="x", pady=(0, 10))
 
@@ -107,7 +94,7 @@ class CreateTaskDialog:
             state=tk.DISABLED
         ).pack(anchor="w", pady=(5, 0))
 
-        self.preview_btn = None  # Store reference for state management
+        self.preview_btn = None
 
         # Priority and Task Type on same line
         priority_type_frame = ttk.Frame(main_frame)
@@ -120,7 +107,7 @@ class CreateTaskDialog:
         self.priority_var = tk.StringVar()
         priority_combo = ttk.Combobox(priority_col, textvariable=self.priority_var, state='readonly', width=25)
         priority_combo['values'] = self.queue.get_priorities()
-        priority_combo.current(1)  # Default to 'high'
+        priority_combo.current(1)
         priority_combo.pack(fill="x")
 
         # Task Type
@@ -175,16 +162,16 @@ class CreateTaskDialog:
             variable=self.auto_chain_var
         ).pack(anchor="w")
 
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=10)
+        # Buttons - Using BaseDialog helper
+        self.create_button_frame(main_frame, [
+            ("Create Task", self.create_task),
+            ("Create & Start", self.create_and_start),
+            ("Cancel", self.cancel)
+        ])
 
-        ttk.Button(button_frame, text="Create Task", command=self.create_task).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Create & Start", command=self.create_and_start).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side="left", padx=5)
-
-        # Set initial focus
-        self.dialog.after(100, self.title_entry.focus_set)
+    def on_show(self):
+        """Called after dialog shown - set initial focus and trigger agent selection."""
+        self.set_focus(self.title_entry)
 
         # Trigger initial agent selection
         if self.agent_combo['values']:
@@ -245,12 +232,6 @@ class CreateTaskDialog:
                 font=('Arial', 9),
                 foreground='gray'
             ).pack(anchor="w")
-
-        # Update contract info
-        contract = self.queue.get_agent_contract(agent_key)
-        if contract:
-            # Could show expected outputs, etc.
-            pass
 
         # Trigger source validation
         self.validate_source_file()
@@ -316,10 +297,9 @@ class CreateTaskDialog:
 
     def quick_start_workflow(self, agent: str, description: str, priority: str):
         """Quick start a workflow with pre-filled values."""
-        # Set form values
         agent_name = self.agents_map.get(agent, agent)
         self.agent_var.set(agent_name)
-        self.on_agent_selected()  # Update skills display
+        self.on_agent_selected()
 
         self.priority_var.set(priority)
 
@@ -343,8 +323,8 @@ class CreateTaskDialog:
         self.description_text.insert('1.0',
                                      f"Quick workflow: {description}\n\nThis workflow will automatically progress through all phases.")
 
-        # Focus on title for user to fill in
-        self.title_entry.focus_set()
+        # Focus on title
+        self.set_focus(self.title_entry)
 
     def validate_source_file(self):
         """Validate source file against agent's expected pattern."""
@@ -373,11 +353,9 @@ class CreateTaskDialog:
         )
 
         if filename:
-            try:
-                rel_path = Path(filename).relative_to(self.queue.project_root)
-                self.source_var.set(str(rel_path))
-            except ValueError:
-                self.source_var.set(filename)
+            # Using PathUtils!
+            rel_path = PathUtils.relative_to_project(Path(filename), self.queue.project_root)
+            self.source_var.set(rel_path)
 
     def generate_prompt(self):
         """Generate task description using Claude API."""
@@ -390,11 +368,6 @@ class CreateTaskDialog:
 
         if not source_file:
             messagebox.showwarning("Missing Source", "Please select a source file first.")
-            return
-
-        api_key = self.settings.get_claude_api_key() if self.settings else None
-        if not api_key:
-            messagebox.showwarning("No API Key", "Claude API key not configured in Settings menu.")
             return
 
         # Build context
@@ -435,56 +408,6 @@ class CreateTaskDialog:
 
         context = "\n".join(context_parts)
 
-        # Show working dialog
-        self.working_dialog = ClaudeWorkingDialog(
-            self.dialog,
-            "Generating task description",
-            "15-30 seconds"
-        )
-        self.working_dialog.show()
-
-        # Run API call in separate thread
-        def api_thread():
-            try:
-                generated = self.call_claude_api(context)
-                # Schedule UI update on main thread
-                self.dialog.after(0, lambda: self.on_generation_complete(generated))
-            except Exception as error:
-                self.dialog.after(0, lambda err=error: self.on_generation_error(err))
-
-        thread = threading.Thread(target=api_thread, daemon=True)
-        thread.start()
-
-    def on_generation_complete(self, content):
-        """Handle successful generation (runs on UI thread)."""
-        self.working_dialog.close()
-        self.description_text.delete('1.0', tk.END)
-        self.description_text.insert('1.0', content)
-
-    def on_generation_error(self, error):
-        """Handle generation error (runs on UI thread)."""
-        self.working_dialog.close()
-        messagebox.showerror("API Error", f"Failed to generate: {error}")
-
-    def call_claude_api(self, context_prompt: str) -> str:
-        """Call Claude API to generate task description."""
-        # Get Claude configuration from settings
-        config = self.settings.get_claude_config()
-
-        api_key = config['api_key']
-        if not api_key:
-            raise Exception("Claude API key not configured")
-
-        model = config['model']
-        max_tokens = config['max_tokens']
-
-        url = "https://api.anthropic.com/v1/messages"
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
-        }
-
         system_prompt = """You are an expert at creating detailed, actionable task descriptions for software development.
 Generate ONLY the task description content without conversational framing.
 
@@ -494,23 +417,25 @@ Include:
 - Technical requirements
 - Acceptance criteria"""
 
-        data = {
-            "model": model,
-            "max_tokens": max_tokens,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": context_prompt}]
-        }
-
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(data).encode('utf-8'),
-            headers=headers,
-            method='POST'
+        # Using ClaudeGeneratorMixin - Much simpler!
+        self.call_claude_async(
+            context=context,
+            system_prompt=system_prompt,
+            message="Generating task description",
+            estimate="15-30 seconds",
+            timeout=30,
+            on_success=self.on_generation_complete,
+            on_error=self.on_generation_error
         )
 
-        with urllib.request.urlopen(req, timeout=30) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            return result['content'][0]['text']
+    def on_generation_complete(self, content: str):
+        """Handle successful generation."""
+        self.description_text.delete('1.0', tk.END)
+        self.description_text.insert('1.0', content)
+
+    def on_generation_error(self, error: Exception):
+        """Handle generation error."""
+        messagebox.showerror("API Error", f"Failed to generate: {error}")
 
     def get_agent_key(self, display_name: str) -> str:
         """Convert agent display name to agent-file key."""
@@ -526,9 +451,8 @@ Include:
                 return key
         return display_name
 
-    def create_task(self):
-        """Create the task."""
-        # Validate
+    def validate(self) -> bool:
+        """Validate form before creating task."""
         title = self.title_var.get().strip()
         agent_display = self.agent_var.get()
         priority = self.priority_var.get()
@@ -538,11 +462,7 @@ Include:
 
         if not all([title, agent_display, priority, task_type_display, source_file, description]):
             messagebox.showwarning("Validation Error", "All fields are required.")
-            return
-
-        # Convert to keys
-        agent = self.get_agent_key(agent_display)
-        task_type = self.get_task_type_key(task_type_display)
+            return False
 
         # Validate source exists
         source_path = Path(source_file)
@@ -551,7 +471,26 @@ Include:
 
         if not source_path.exists():
             messagebox.showerror("File Not Found", f"Source file does not exist: {source_file}")
+            return False
+
+        return True
+
+    def create_task(self):
+        """Create the task."""
+        if not self.validate():
             return
+
+        # Get values
+        title = self.title_var.get().strip()
+        agent_display = self.agent_var.get()
+        priority = self.priority_var.get()
+        task_type_display = self.task_type_var.get()
+        source_file = self.source_var.get().strip()
+        description = self.description_text.get('1.0', tk.END).strip()
+
+        # Convert to keys
+        agent = self.get_agent_key(agent_display)
+        task_type = self.get_task_type_key(task_type_display)
 
         try:
             task_id = self.queue.add_task(
@@ -564,8 +503,8 @@ Include:
                 auto_complete=self.auto_complete_var.get(),
                 auto_chain=self.auto_chain_var.get()
             )
-            self.result = task_id
-            self.dialog.destroy()
+            # Use BaseDialog.close() with result
+            self.close(result=task_id)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create task: {e}")
@@ -574,8 +513,3 @@ Include:
         """Create task and mark to start immediately."""
         self.should_start = True
         self.create_task()
-
-    def cancel(self):
-        """Cancel dialog."""
-        self.result = None
-        self.dialog.destroy()

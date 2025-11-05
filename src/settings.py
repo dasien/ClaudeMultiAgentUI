@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Optional
 
+from .config import ClaudeConfig
+
 
 class Settings:
     """Manages application settings persistence."""
@@ -148,8 +150,8 @@ class Settings:
             Uses defaults if values not set
         """
         # Default values
-        DEFAULT_MODEL = "claude-opus-4-20250514"
-        DEFAULT_MAX_TOKENS = 16384
+        DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+        DEFAULT_MAX_TOKENS = 8192
 
         return {
             'api_key': self.get_claude_api_key(),

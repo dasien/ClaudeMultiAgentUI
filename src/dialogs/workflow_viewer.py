@@ -7,31 +7,24 @@ from tkinter import ttk
 from typing import Dict, List, Optional
 from collections import defaultdict
 
+from .base_dialog import BaseDialog
+from ..utils import TimeUtils
 
-class WorkflowStateViewer:
+
+class WorkflowStateViewer(BaseDialog):
     """Dialog for visualizing workflow states and progress."""
 
     def __init__(self, parent, queue_interface):
+        super().__init__(parent, "Active Workflows", 750, 600)
         self.queue = queue_interface
-        self.workflows = {}  # enhancement_name -> workflow_state
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Active Workflows")
-        self.dialog.geometry("750x600")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
+        self.workflows = {}
 
         self.build_ui()
         self.load_workflows()
+        # Don't call show() - workflow viewer doesn't return a result
 
     def build_ui(self):
-        """Build the UI."""
+        """Build the workflow viewer UI."""
         # Main canvas for scrolling
         canvas = tk.Canvas(self.dialog)
         canvas.pack(side="left", fill="both", expand=True)
@@ -45,7 +38,7 @@ class WorkflowStateViewer:
         self.workflows_frame = ttk.Frame(canvas, padding=20)
         canvas.create_window((0, 0), window=self.workflows_frame, anchor='nw')
 
-        # Bottom buttons
+        # Bottom buttons - Using BaseDialog helper
         button_frame = ttk.Frame(self.dialog)
         button_frame.pack(fill="x", pady=10)
 
@@ -54,22 +47,19 @@ class WorkflowStateViewer:
 
     def load_workflows(self):
         """Load and display all active workflows."""
-        # Clear existing
         for widget in self.workflows_frame.winfo_children():
             widget.destroy()
 
         try:
-            # Get queue state
             queue_state = self.queue.get_queue_state()
 
             # Group tasks by enhancement
             enhancement_tasks = defaultdict(list)
 
-            for task in (queue_state.pending_tasks + 
-                        queue_state.active_workflows + 
-                        queue_state.completed_tasks[-20:]):  # Recent completed
-                
-                # Extract enhancement name from source file
+            for task in (queue_state.pending_tasks +
+                         queue_state.active_workflows +
+                         queue_state.completed_tasks[-20:]):
+
                 source = task.source_file
                 if source.startswith('enhancements/'):
                     parts = source.split('/')
@@ -99,7 +89,6 @@ class WorkflowStateViewer:
 
     def render_workflow(self, enhancement: str, tasks: List):
         """Render a single workflow visualization."""
-        # Determine workflow state
         workflow_state = self.analyze_workflow_state(tasks)
 
         # Create workflow frame
@@ -133,7 +122,6 @@ class WorkflowStateViewer:
         steps_frame = ttk.Frame(workflow_frame)
         steps_frame.pack(fill="x", pady=(10, 0))
 
-        # Standard workflow order
         standard_agents = [
             'requirements-analyst',
             'architect',
@@ -144,55 +132,47 @@ class WorkflowStateViewer:
 
         for i, agent in enumerate(standard_agents):
             step_state = workflow_state['agents'].get(agent, 'not_started')
-            
-            # Create step indicator
+
             step_frame = ttk.Frame(steps_frame)
             step_frame.pack(anchor="w", pady=2)
 
             # Status icon
             if step_state == 'completed':
-                icon = "✓"
-                color = 'green'
+                icon, color = "✓", 'green'
             elif step_state == 'active':
-                icon = "→"
-                color = 'orange'
+                icon, color = "→", 'orange'
             elif step_state == 'failed':
-                icon = "✗"
-                color = 'red'
+                icon, color = "✗", 'red'
             elif step_state == 'pending':
-                icon = "○"
-                color = 'blue'
+                icon, color = "○", 'blue'
             else:
-                icon = " "
-                color = 'gray'
+                icon, color = " ", 'gray'
 
-            # Display
-            status_label = ttk.Label(
+            ttk.Label(
                 step_frame,
                 text=icon,
                 font=('Arial', 12, 'bold'),
                 foreground=color,
                 width=2
-            )
-            status_label.pack(side="left")
+            ).pack(side="left")
 
             agent_name = self.queue.get_agent_list().get(agent, agent)
-            agent_label = ttk.Label(
+            ttk.Label(
                 step_frame,
                 text=agent_name,
                 font=('Arial', 10)
-            )
-            agent_label.pack(side="left", padx=(5, 0))
+            ).pack(side="left", padx=(5, 0))
 
-            # Show task info if exists
+            # Show task info if exists - Using TimeUtils!
             agent_tasks = [t for t in tasks if t.assigned_agent == agent]
             if agent_tasks:
                 latest = agent_tasks[-1]
+                runtime_str = TimeUtils.format_runtime(latest.runtime_seconds)
                 info = f"({latest.status}"
-                if latest.runtime_seconds:
-                    info += f", {self.format_runtime(latest.runtime_seconds)}"
+                if runtime_str:
+                    info += f", {runtime_str}"
                 info += ")"
-                
+
                 ttk.Label(
                     step_frame,
                     text=info,
@@ -204,9 +184,6 @@ class WorkflowStateViewer:
         status_frame = ttk.Frame(workflow_frame)
         status_frame.pack(fill="x", pady=(10, 0))
 
-        status_text = workflow_state['status_text']
-        status_color = workflow_state['status_color']
-
         ttk.Label(
             status_frame,
             text="Status:",
@@ -215,9 +192,9 @@ class WorkflowStateViewer:
 
         ttk.Label(
             status_frame,
-            text=status_text,
+            text=workflow_state['status_text'],
             font=('Arial', 9),
-            foreground=status_color
+            foreground=workflow_state['status_color']
         ).pack(side="left", padx=(5, 0))
 
         # Show next agent if applicable
@@ -235,9 +212,8 @@ class WorkflowStateViewer:
 
     def analyze_workflow_state(self, tasks: List) -> Dict:
         """Analyze workflow state from tasks."""
-        # Count completed, active, pending for each agent
         agent_states = {}
-        
+
         standard_agents = [
             'requirements-analyst',
             'architect',
@@ -248,7 +224,7 @@ class WorkflowStateViewer:
 
         for agent in standard_agents:
             agent_tasks = [t for t in tasks if t.assigned_agent == agent]
-            
+
             if not agent_tasks:
                 agent_states[agent] = 'not_started'
             else:
@@ -264,12 +240,7 @@ class WorkflowStateViewer:
 
         # Calculate progress
         completed = sum(1 for s in agent_states.values() if s == 'completed')
-        total = len([s for s in agent_states.values() if s != 'not_started'])
-        
-        if total == 0:
-            progress_pct = 0
-        else:
-            progress_pct = int((completed / len(standard_agents)) * 100)
+        progress_pct = int((completed / len(standard_agents)) * 100)
 
         # Determine current status
         if any(s == 'failed' for s in agent_states.values()):
@@ -286,13 +257,12 @@ class WorkflowStateViewer:
             status_color = 'green'
             next_agent = None
         else:
-            # Find next pending agent
             next_agent = None
             for agent in standard_agents:
                 if agent_states[agent] == 'not_started':
                     next_agent = agent
                     break
-            
+
             if next_agent:
                 status_text = "WAITING"
                 status_color = 'blue'
@@ -307,15 +277,3 @@ class WorkflowStateViewer:
             'status_color': status_color,
             'next_agent': next_agent
         }
-
-    def format_runtime(self, seconds: Optional[int]) -> str:
-        """Format runtime in human-readable form."""
-        if not seconds:
-            return ""
-
-        if seconds < 60:
-            return f"{seconds}s"
-        elif seconds < 3600:
-            return f"{seconds // 60}m {seconds % 60}s"
-        else:
-            return f"{seconds // 3600}h {(seconds % 3600) // 60}m"

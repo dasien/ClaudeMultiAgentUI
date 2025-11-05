@@ -6,32 +6,24 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Optional, List, Dict
 
+from .base_dialog import BaseDialog
 
-class SkillsViewerDialog:
+
+class SkillsViewerDialog(BaseDialog):
     """Dialog for browsing and previewing skills."""
 
     def __init__(self, parent, queue_interface):
+        super().__init__(parent, "Skills Viewer", 1000, 700)
         self.queue = queue_interface
         self.skills_data = None
         self.current_skill = None
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Skills Viewer")
-        self.dialog.geometry("1000x700")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center on parent
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
         self.build_ui()
         self.load_skills()
+        # Don't call show() - this dialog doesn't return a result
 
     def build_ui(self):
-        """Build the UI."""
+        """Build the skills viewer UI."""
         # Filter controls at top
         filter_frame = ttk.Frame(self.dialog, padding=10)
         filter_frame.pack(fill="x")
@@ -130,7 +122,8 @@ class SkillsViewerDialog:
         ttk.Separator(right_frame, orient="horizontal").pack(fill="x", pady=10)
 
         # Agents using this skill
-        ttk.Label(right_frame, text="Agents Using This Skill:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        ttk.Label(right_frame, text="Agents Using This Skill:", font=('Arial', 10, 'bold')).pack(anchor="w",
+                                                                                                 pady=(0, 5))
 
         self.agents_frame = ttk.Frame(right_frame)
         self.agents_frame.pack(fill="x")
@@ -143,7 +136,7 @@ class SkillsViewerDialog:
         )
         self.agents_label.pack(anchor="w")
 
-        # Bottom buttons
+        # Bottom button
         button_frame = ttk.Frame(self.dialog, padding=10)
         button_frame.pack(fill="x")
 
@@ -161,7 +154,7 @@ class SkillsViewerDialog:
             # Extract categories
             categories = set(['All'])
             skills_list = self.skills_data.get('skills', [])
-            
+
             for skill in skills_list:
                 category = skill.get('category', 'uncategorized')
                 categories.add(category.replace('-', ' ').title())
@@ -176,7 +169,6 @@ class SkillsViewerDialog:
 
     def populate_skills_tree(self, skills_list: List[Dict]):
         """Populate the skills tree with filtered skills."""
-        # Clear current items
         for item in self.skills_tree.get_children():
             self.skills_tree.delete(item)
 
@@ -234,12 +226,6 @@ class SkillsViewerDialog:
         if skill_data:
             description = skill_data.get('description', '')
             self.skill_desc_label.config(text=description)
-
-            # Show required tools
-            required_tools = skill_data.get('required_tools', [])
-            if required_tools:
-                tools_text = f"Required Tools: {', '.join(required_tools)}"
-                # Could add another label for this
         else:
             self.skill_desc_label.config(text="")
 
@@ -272,7 +258,6 @@ class SkillsViewerDialog:
 
     def load_agents_using_skill(self, skill_directory: str):
         """Find and display which agents use this skill."""
-        # Clear existing labels
         for widget in self.agents_frame.winfo_children():
             widget.destroy()
 

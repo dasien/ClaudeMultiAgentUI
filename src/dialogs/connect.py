@@ -1,33 +1,23 @@
 """
 Connect dialog for selecting a v3.0 CMAT project.
 Validates v3.0 structure including cmat.sh, skills, and contracts.
+REFACTORED to use BaseDialog.
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog
 from pathlib import Path
 
+from .base_dialog import BaseDialog
 
-class ConnectDialog:
+
+class ConnectDialog(BaseDialog):
     """Dialog for connecting to a v3.0 CMAT project."""
 
     def __init__(self, parent):
-        self.result = None
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Connect to Project")
-        self.dialog.geometry("700x550")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
+        super().__init__(parent, "Connect to Project", 700, 550)
         self.build_ui()
-        self.dialog.wait_window()
+        self.show()
 
     def build_ui(self):
         """Build UI."""
@@ -178,11 +168,5 @@ class ConnectDialog:
         project_root = Path(self.path_var.get())
         cmat_script = project_root / ".claude/scripts/cmat.sh"
 
-        # Return path to cmat.sh
-        self.result = str(cmat_script)
-        self.dialog.destroy()
-
-    def cancel(self):
-        """Cancel dialog."""
-        self.result = None
-        self.dialog.destroy()
+        # Use BaseDialog.close() with result
+        self.close(result=str(cmat_script))

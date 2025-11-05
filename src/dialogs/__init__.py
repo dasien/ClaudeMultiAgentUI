@@ -4,32 +4,32 @@ Enhanced with Skills, Workflows, and Integration features.
 """
 
 # Dialogs
-from .connect_dialog import ConnectDialog
-from .operations_log_dialog import OperationsLogDialog
-from .about_dialog import AboutDialog
-from .agent_manager_dialog import AgentManagerDialog
-from .skills_viewer_dialog import SkillsViewerDialog
-from .enhanced_task_details import EnhancedTaskDetailsDialog
-from .create_task_enhanced import CreateTaskDialog
-from .enhanced_agent_manager import EnhancedCreateEditAgentDialog
+from .connect import ConnectDialog
+from .log_viewer import LogViewerDialog
+from .about import AboutDialog
+from .agent_list import AgentListDialog
+from .skills_list import SkillsViewerDialog
+from .task_details import TaskDetailsDialog
+from .task_create import CreateTaskDialog
+from .agent_details import AgentDetailsDialog
 from .workflow_viewer import WorkflowStateViewer
-from .integration_dashboard import IntegrationDashboard
-from .enhancement_generator_dialog import EnhancementGeneratorDialog
-from .claude_working_dialog import ClaudeWorkingDialog
-from .claude_settings_dialog import ClaudeSettingsDialog
+from .integration_dashboard import IntegrationDashboardDialog
+from .enhancement_create import CreateEnhancementDialog
+from .working import WorkingDialog
+from .claude_settings import ClaudeSettingsDialog
 
 __all__ = [
     'ConnectDialog',
-    'OperationsLogDialog',
+    'LogViewerDialog',
     'AboutDialog',
-    'AgentManagerDialog',
+    'AgentListDialog',
     'SkillsViewerDialog',
-    'EnhancedTaskDetailsDialog',
+    'TaskDetailsDialog',
     'CreateTaskDialog',
-    'EnhancedCreateEditAgentDialog',
+    'AgentDetailsDialog',
     'WorkflowStateViewer',
-    'IntegrationDashboard',
-    'EnhancementGeneratorDialog',
-    'ClaudeWorkingDialog',
+    'IntegrationDashboardDialog',
+    'CreateEnhancementDialog',
+    'WorkingDialog',
     'ClaudeSettingsDialog',
 ]

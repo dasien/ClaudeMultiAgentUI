@@ -2,6 +2,8 @@
 Configuration settings for the Task Queue Manager.
 """
 
+from typing import Dict, List
+
 
 class Config:
     """Application configuration."""
@@ -25,24 +27,128 @@ class Config:
 
     # Status colors
     STATUS_COLORS = {
-        'pending': '#2196F3',    # Blue
-        'active': '#FF9800',     # Orange
+        'pending': '#2196F3',  # Blue
+        'active': '#FF9800',  # Orange
         'completed': '#4CAF50',  # Green
-        'failed': '#F44336'      # Red
+        'failed': '#F44336'  # Red
     }
 
     # Priority colors
     PRIORITY_COLORS = {
-        'critical': '#F44336',   # Red
-        'high': '#FF9800',       # Orange
-        'normal': '#000000',     # Black
-        'low': '#9E9E9E'         # Gray
+        'critical': '#F44336',  # Red
+        'high': '#FF9800',  # Orange
+        'normal': '#000000',  # Black
+        'low': '#9E9E9E'  # Gray
     }
 
     # Row background colors (subtle)
     ROW_COLORS = {
-        'pending': '#FFFFFF',    # White
-        'active': '#FFF9E6',     # Light yellow
+        'pending': '#FFFFFF',  # White
+        'active': '#FFF9E6',  # Light yellow
         'completed': '#E8F5E9',  # Light green
-        'failed': '#FFEBEE'      # Light red
+        'failed': '#FFEBEE'  # Light red
     }
+
+
+class ClaudeConfig:
+    """
+    Centralized Claude API configuration.
+    Single source of truth for Claude models and defaults.
+    """
+
+    # Available Claude models with their specifications
+    MODELS = {
+        "claude-opus-4-20250514": {
+            "name": "Claude Opus 4",
+            "max_tokens": 16384,
+            "description": "Most capable model, 16K output"
+        },
+        "claude-sonnet-4-5-20250929": {
+            "name": "Claude Sonnet 4.5",
+            "max_tokens": 8192,
+            "description": "Smartest model, efficient, 8K output"
+        },
+        "claude-sonnet-4-20250514": {
+            "name": "Claude Sonnet 4",
+            "max_tokens": 8192,
+            "description": "Balanced performance, 8K output"
+        },
+        "claude-haiku-4-20250514": {
+            "name": "Claude Haiku 4",
+            "max_tokens": 8192,
+            "description": "Fastest and most cost-effective, 8K output"
+        },
+    }
+
+    # Default model and tokens
+    DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+    DEFAULT_MAX_TOKENS = 8192
+
+    @classmethod
+    def get_display_name(cls, model_id: str) -> str:
+        """
+        Get formatted display name for a model.
+
+        Args:
+            model_id: Model identifier (e.g., 'claude-opus-4-20250514')
+
+        Returns:
+            Formatted display name (e.g., 'Claude Opus 4 — Most capable model, 16K output')
+        """
+        if model_id not in cls.MODELS:
+            model_id = cls.DEFAULT_MODEL
+
+        info = cls.MODELS[model_id]
+        return f"{info['name']} — {info['description']}"
+
+    @classmethod
+    def get_all_display_names(cls) -> List[str]:
+        """
+        Get all model display names for dropdown.
+
+        Returns:
+            List of formatted display names
+        """
+        return [cls.get_display_name(mid) for mid in cls.MODELS.keys()]
+
+    @classmethod
+    def get_model_from_display(cls, display_name: str) -> str:
+        """
+        Convert display name back to model ID.
+
+        Args:
+            display_name: Formatted display name
+
+        Returns:
+            Model ID or default model if not found
+        """
+        for model_id in cls.MODELS.keys():
+            if cls.get_display_name(model_id) == display_name:
+                return model_id
+        return cls.DEFAULT_MODEL
+
+    @classmethod
+    def get_model_info(cls, model_id: str) -> Dict:
+        """
+        Get complete model information.
+
+        Args:
+            model_id: Model identifier
+
+        Returns:
+            Dictionary with 'name', 'max_tokens', 'description'
+        """
+        return cls.MODELS.get(model_id, cls.MODELS[cls.DEFAULT_MODEL])
+
+    @classmethod
+    def get_max_tokens(cls, model_id: str) -> int:
+        """
+        Get maximum tokens for a model.
+
+        Args:
+            model_id: Model identifier
+
+        Returns:
+            Maximum tokens for the model
+        """
+        return cls.get_model_info(model_id)['max_tokens']

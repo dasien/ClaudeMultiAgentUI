@@ -1,78 +1,23 @@
 """
 Claude API Settings Dialog
-Manages Claude API configuration including API key, model, and max tokens.
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from .base_dialog import BaseDialog
+from ..config import ClaudeConfig
 
-class ClaudeSettingsDialog:
+
+class ClaudeSettingsDialog(BaseDialog):
     """Dialog for configuring Claude API settings."""
 
-    # Available Claude models with their max output tokens
-    CLAUDE_MODELS = {
-        "claude-opus-4-20250514": {
-            "name": "Claude Opus 4",
-            "max_tokens": 16384,
-            "description": "Most capable model, 16K output"
-        },
-        "claude-sonnet-4-5-20250929": {
-            "name": "Claude Sonnet 4.5",
-            "max_tokens": 8192,
-            "description": "Smartest model, efficient, 8K output"
-        },
-        "claude-sonnet-4-20250514": {
-            "name": "Claude Sonnet 4",
-            "max_tokens": 8192,
-            "description": "Balanced performance, 8K output"
-        },
-        "claude-haiku-4-20250514": {
-            "name": "Claude Haiku 4",
-            "max_tokens": 8192,
-            "description": "Fastest and most cost-effective, 8K output"
-        },
-    }
-
-    # Default model
-    DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
-
     def __init__(self, parent, settings):
-        self.parent = parent
+        super().__init__(parent, "Claude API Settings", 600, 550, resizable=False)
         self.settings = settings
-        self.result = False
-
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Claude API Settings")
-        self.dialog.geometry("600x550")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-        self.dialog.resizable(False, False)
-
-        # Center on parent
-        self.center_on_parent()
-
         self.build_ui()
         self.load_current_settings()
-
-        self.dialog.wait_window()
-
-    def center_on_parent(self):
-        """Center dialog on parent window."""
-        self.dialog.update_idletasks()
-
-        parent_x = self.parent.winfo_x()
-        parent_y = self.parent.winfo_y()
-        parent_width = self.parent.winfo_width()
-        parent_height = self.parent.winfo_height()
-
-        dialog_width = self.dialog.winfo_width()
-        dialog_height = self.dialog.winfo_height()
-
-        x = parent_x + (parent_width // 2) - (dialog_width // 2)
-        y = parent_y + (parent_height // 2) - (dialog_height // 2)
-
-        self.dialog.geometry(f"+{x}+{y}")
+        self.show()
 
     def build_ui(self):
         """Build the settings UI."""
@@ -128,7 +73,7 @@ class ClaudeSettingsDialog:
 
         self.model_var = tk.StringVar()
 
-        # Create dropdown for model selection
+        # Create dropdown using ClaudeConfig
         model_combo = ttk.Combobox(
             model_frame,
             textvariable=self.model_var,
@@ -136,15 +81,8 @@ class ClaudeSettingsDialog:
             width=50
         )
 
-        # Build dropdown values with formatted display names
-        model_display_values = []
-        self.model_id_map = {}  # Map display name to model ID
-
-        for model_id, model_info in self.CLAUDE_MODELS.items():
-            display = f"{model_info['name']} — {model_info['description']}"
-            model_display_values.append(display)
-            self.model_id_map[display] = model_id
-
+        # Use ClaudeConfig helper methods
+        model_display_values = ClaudeConfig.get_all_display_names()
         model_combo['values'] = model_display_values
         model_combo.pack(fill="x", pady=(0, 10))
         model_combo.bind('<<ComboboxSelected>>', self.on_model_changed)
@@ -186,30 +124,12 @@ class ClaudeSettingsDialog:
             wraplength=550
         ).pack(anchor="w", pady=(5, 0))
 
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=(20, 0))
-
-        ttk.Button(
-            button_frame,
-            text="Save Settings",
-            command=self.save_settings,
-            width=15
-        ).pack(side="left", padx=5)
-
-        ttk.Button(
-            button_frame,
-            text="Reset to Defaults",
-            command=self.reset_to_defaults,
-            width=15
-        ).pack(side="left", padx=5)
-
-        ttk.Button(
-            button_frame,
-            text="Cancel",
-            command=self.cancel,
-            width=15
-        ).pack(side="left", padx=5)
+        # Buttons - Using BaseDialog helper
+        self.create_button_frame(main_frame, [
+            ("Save Settings", self.save_settings),
+            ("Reset to Defaults", self.reset_to_defaults),
+            ("Cancel", self.cancel)
+        ])
 
     def toggle_api_key_visibility(self):
         """Toggle API key visibility."""
@@ -220,17 +140,15 @@ class ClaudeSettingsDialog:
 
     def on_model_changed(self, event=None):
         """Handle model selection change."""
-        # Get model ID from display name
         display_name = self.model_var.get()
-        model_id = self.model_id_map.get(display_name)
+        model_id = ClaudeConfig.get_model_from_display(display_name)
 
-        if model_id and model_id in self.CLAUDE_MODELS:
-            model_info = self.CLAUDE_MODELS[model_id]
-            default_tokens = model_info["max_tokens"]
+        if model_id:
+            default_tokens = ClaudeConfig.get_max_tokens(model_id)
 
             # Update max tokens to model's default if current value is from another model
             current_tokens = self.max_tokens_var.get()
-            if not current_tokens or int(current_tokens) in [m["max_tokens"] for m in self.CLAUDE_MODELS.values()]:
+            if not current_tokens or int(current_tokens) in [m["max_tokens"] for m in ClaudeConfig.MODELS.values()]:
                 self.max_tokens_var.set(str(default_tokens))
 
             # Update label
@@ -247,18 +165,17 @@ class ClaudeSettingsDialog:
 
         # Load model (with default)
         model_id = self.settings.get_claude_model()
-        if not model_id or model_id not in self.CLAUDE_MODELS:
-            model_id = self.DEFAULT_MODEL
+        if not model_id or model_id not in ClaudeConfig.MODELS:
+            model_id = ClaudeConfig.DEFAULT_MODEL
 
-        # Find the display name for this model ID
-        model_info = self.CLAUDE_MODELS[model_id]
-        display_name = f"{model_info['name']} — {model_info['description']}"
+        # Use ClaudeConfig helper
+        display_name = ClaudeConfig.get_display_name(model_id)
         self.model_var.set(display_name)
 
         # Load max tokens (with default based on model)
         max_tokens = self.settings.get_claude_max_tokens()
         if not max_tokens:
-            max_tokens = self.CLAUDE_MODELS[model_id]["max_tokens"]
+            max_tokens = ClaudeConfig.get_max_tokens(model_id)
         self.max_tokens_var.set(str(max_tokens))
 
         # Trigger model change to update label
@@ -266,20 +183,23 @@ class ClaudeSettingsDialog:
 
     def reset_to_defaults(self):
         """Reset settings to defaults."""
+        default_model_info = ClaudeConfig.get_model_info(ClaudeConfig.DEFAULT_MODEL)
+
         if messagebox.askyesno(
                 "Reset to Defaults",
                 "Reset Claude settings to defaults?\n\n"
-                f"Model: {self.CLAUDE_MODELS[self.DEFAULT_MODEL]['name']}\n"
-                f"Max Tokens: {self.CLAUDE_MODELS[self.DEFAULT_MODEL]['max_tokens']:,}\n\n"
+                f"Model: {default_model_info['name']}\n"
+                f"Max Tokens: {default_model_info['max_tokens']:,}\n\n"
                 "Your API key will not be changed."
         ):
-            self.model_var.set(self.DEFAULT_MODEL)
-            self.max_tokens_var.set(str(self.CLAUDE_MODELS[self.DEFAULT_MODEL]["max_tokens"]))
+            display_name = ClaudeConfig.get_display_name(ClaudeConfig.DEFAULT_MODEL)
+            self.model_var.set(display_name)
+            self.max_tokens_var.set(str(ClaudeConfig.DEFAULT_MAX_TOKENS))
             self.on_model_changed()
 
-    def validate_settings(self):
+    def validate(self) -> bool:
         """Validate settings before saving."""
-        # Validate API key (just check it's not empty)
+        # Validate API key
         api_key = self.api_key_var.get().strip()
         if not api_key:
             messagebox.showwarning(
@@ -301,18 +221,19 @@ class ClaudeSettingsDialog:
 
             # Warn if exceeds model maximum
             display_name = self.model_var.get()
-            model_id = self.model_id_map.get(display_name)
-            if model_id:
-                model_max = self.CLAUDE_MODELS[model_id]["max_tokens"]
-                if max_tokens > model_max:
-                    if not messagebox.askyesno(
-                            "Token Limit Exceeds Maximum",
-                            f"You've set max tokens to {max_tokens:,}, but {self.CLAUDE_MODELS[model_id]['name']} "
-                            f"has a maximum of {model_max:,}.\n\n"
-                            f"The API will use {model_max:,} tokens maximum.\n\n"
-                            "Continue with this value?"
-                    ):
-                        return False
+            model_id = ClaudeConfig.get_model_from_display(display_name)
+            model_max = ClaudeConfig.get_max_tokens(model_id)
+            model_name = ClaudeConfig.get_model_info(model_id)['name']
+
+            if max_tokens > model_max:
+                if not messagebox.askyesno(
+                        "Token Limit Exceeds Maximum",
+                        f"You've set max tokens to {max_tokens:,}, but {model_name} "
+                        f"has a maximum of {model_max:,}.\n\n"
+                        f"The API will use {model_max:,} tokens maximum.\n\n"
+                        "Continue with this value?"
+                ):
+                    return False
         except ValueError:
             messagebox.showwarning(
                 "Invalid Token Limit",
@@ -324,7 +245,7 @@ class ClaudeSettingsDialog:
 
     def save_settings(self):
         """Save settings to Settings object."""
-        if not self.validate_settings():
+        if not self.validate():
             return
 
         try:
@@ -332,29 +253,25 @@ class ClaudeSettingsDialog:
             api_key = self.api_key_var.get().strip()
             self.settings.set_claude_api_key(api_key)
 
-            # Save model (convert display name back to model ID)
+            # Save model
             display_name = self.model_var.get()
-            model_id = self.model_id_map.get(display_name)
+            model_id = ClaudeConfig.get_model_from_display(display_name)
             self.settings.set_claude_model(model_id)
 
             # Save max tokens
             max_tokens = int(self.max_tokens_var.get())
             self.settings.set_claude_max_tokens(max_tokens)
 
-            self.result = True
             messagebox.showinfo(
                 "Settings Saved",
                 "Claude API settings saved successfully!"
             )
-            self.dialog.destroy()
+
+            # Use BaseDialog.close() with result
+            self.close(result=True)
 
         except Exception as e:
             messagebox.showerror(
                 "Save Error",
                 f"Failed to save settings:\n\n{e}"
             )
-
-    def cancel(self):
-        """Cancel without saving."""
-        self.result = False
-        self.dialog.destroy()

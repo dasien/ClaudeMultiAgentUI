@@ -12,6 +12,7 @@ from .queue_interface import QueueInterface
 from .models import ConnectionState, QueueUIState
 from .config import Config
 from .settings import Settings
+from .utils import TimeUtils
 
 try:
     from PIL import Image, ImageTk
@@ -411,16 +412,8 @@ class TaskQueueUI:
             messagebox.showerror("Refresh Error", f"Failed to refresh: {e}")
 
     def format_runtime(self, seconds):
-        """Format runtime."""
-        if not seconds:
-            return ''
-        seconds = int(seconds)
-        if seconds < 60:
-            return f"{seconds}s"
-        elif seconds < 3600:
-            return f"{seconds // 60}m {seconds % 60}s"
-        else:
-            return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
+        """Format runtime using TimeUtils."""
+        return TimeUtils.format_runtime(seconds)
 
     def toggle_auto_refresh(self):
         """Toggle auto-refresh."""
@@ -450,8 +443,8 @@ class TaskQueueUI:
         """Handle double-click - show enhanced details."""
         task = self.get_selected_task()
         if task:
-            from .dialogs import EnhancedTaskDetailsDialog
-            EnhancedTaskDetailsDialog(self.root, task, self.queue)
+            from .dialogs import TaskDetailsDialog
+            TaskDetailsDialog(self.root, task, self.queue)
 
     def show_context_menu(self, event):
         """Show context menu."""
@@ -600,8 +593,8 @@ class TaskQueueUI:
         """Show enhanced task details."""
         task = self.get_selected_task()
         if task:
-            from .dialogs import EnhancedTaskDetailsDialog
-            EnhancedTaskDetailsDialog(self.root, task, self.queue)
+            from .dialogs import TaskDetailsDialog
+            TaskDetailsDialog(self.root, task, self.queue)
 
     def show_task_log(self):
         """Show task log."""
@@ -685,8 +678,8 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect to a project first.")
             return
 
-        from .dialogs import EnhancementGeneratorDialog
-        dialog = EnhancementGeneratorDialog(self.root, self.queue, self.settings)
+        from .dialogs import CreateEnhancementDialog
+        dialog = CreateEnhancementDialog(self.root, self.queue, self.settings)
 
         if dialog.result:
             messagebox.showinfo(
@@ -701,8 +694,8 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs import IntegrationDashboard
-        IntegrationDashboard(self.root, self.queue)
+        from .dialogs import IntegrationDashboardDialog
+        IntegrationDashboardDialog(self.root, self.queue)
 
     def show_agent_manager(self):
         """Show enhanced agent manager."""
@@ -710,8 +703,8 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs import AgentManagerDialog
-        AgentManagerDialog(self.root, self.queue, self.settings)
+        from .dialogs import AgentListDialog
+        AgentListDialog(self.root, self.queue, self.settings)
 
     def show_operations_log(self):
         """Show operations log."""
@@ -719,8 +712,8 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs import OperationsLogDialog
-        OperationsLogDialog(self.root, self.queue)
+        from .dialogs import LogViewerDialog
+        LogViewerDialog(self.root, self.queue)
 
     def configure_api_key(self):
         """Configure Claude API settings."""

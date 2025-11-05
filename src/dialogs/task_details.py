@@ -1,6 +1,5 @@
 """
 Enhanced Task Details Dialog with skills usage display.
-v3.0 - Shows which skills were applied during task execution.
 """
 
 import tkinter as tk
@@ -9,30 +8,23 @@ from pathlib import Path
 import subprocess
 import sys
 
+from .base_dialog import BaseDialog
+from ..utils import TimeUtils
 
-class EnhancedTaskDetailsDialog:
+
+class TaskDetailsDialog(BaseDialog):
     """Enhanced dialog for viewing task details with skills usage."""
 
     def __init__(self, parent, task, queue_interface):
+        super().__init__(parent, "Task Details", 750, 650)
         self.task = task
         self.queue = queue_interface
 
-        self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Task Details")
-        self.dialog.geometry("750x650")
-        self.dialog.transient(parent)
-        self.dialog.grab_set()
-
-        # Center
-        self.dialog.update_idletasks()
-        x = parent.winfo_x() + (parent.winfo_width() // 2) - (self.dialog.winfo_width() // 2)
-        y = parent.winfo_y() + (parent.winfo_height() // 2) - (self.dialog.winfo_height() // 2)
-        self.dialog.geometry(f"+{x}+{y}")
-
         self.build_ui()
+        # Don't call show() - details dialogs don't return results
 
     def build_ui(self):
-        """Build the UI with tabs."""
+        """Build the task details UI."""
         main_frame = ttk.Frame(self.dialog, padding=10)
         main_frame.pack(fill="both", expand=True)
 
@@ -69,7 +61,6 @@ class EnhancedTaskDetailsDialog:
 
     def build_general_tab(self, parent):
         """Build General Info tab."""
-        # Frame with padding
         scrollable_frame = ttk.Frame(parent, padding=20)
         scrollable_frame.pack(fill="both", expand=True)
 
@@ -87,6 +78,7 @@ class EnhancedTaskDetailsDialog:
         info_grid = ttk.Frame(scrollable_frame)
         info_grid.pack(fill="x", pady=(0, 10))
 
+        # Using TimeUtils for runtime formatting!
         fields = [
             ("Title", self.task.title),
             ("Agent", self.task.assigned_agent),
@@ -96,7 +88,7 @@ class EnhancedTaskDetailsDialog:
             ("Created", self.task.created),
             ("Started", self.task.started or "(not started)"),
             ("Completed", self.task.completed or "(not completed)"),
-            ("Runtime", self.format_runtime(self.task.runtime_seconds)),
+            ("Runtime", TimeUtils.format_runtime(self.task.runtime_seconds) or "(not available)"),
         ]
 
         for i, (label, value) in enumerate(fields):
@@ -142,7 +134,6 @@ class EnhancedTaskDetailsDialog:
 
     def build_details_tab(self, parent):
         """Build Details tab."""
-        # Simple frame with padding - no need for scrolling
         scrollable_frame = ttk.Frame(parent, padding=20)
         scrollable_frame.pack(fill="both", expand=True)
 
@@ -206,7 +197,7 @@ class EnhancedTaskDetailsDialog:
                 foreground='gray'
             ).pack(anchor="w")
 
-        # Contract validation (for completed/active)
+        # Contract validation
         if self.task.status in ['completed', 'active']:
             ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
             contract_frame = ttk.LabelFrame(scrollable_frame, text="Contract Validation", padding=10)
@@ -268,7 +259,8 @@ class EnhancedTaskDetailsDialog:
         # External Integration
         if self.task.metadata:
             ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
-            ttk.Label(scrollable_frame, text="External Integration:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+            ttk.Label(scrollable_frame, text="External Integration:", font=('Arial', 10, 'bold')).pack(anchor="w",
+                                                                                                       pady=(0, 5))
 
             meta_frame = ttk.Frame(scrollable_frame)
             meta_frame.pack(fill="x")
@@ -282,19 +274,6 @@ class EnhancedTaskDetailsDialog:
                     ttk.Label(row, text=str(value), font=('Arial', 9), foreground='blue').pack(side="left")
 
         return scrollable_frame
-
-    def format_runtime(self, seconds):
-        """Format runtime."""
-        if not seconds:
-            return "(not available)"
-
-        seconds = int(seconds)
-        if seconds < 60:
-            return f"{seconds}s"
-        elif seconds < 3600:
-            return f"{seconds // 60}m {seconds % 60}s"
-        else:
-            return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
 
     def copy_id(self):
         """Copy task ID to clipboard."""
@@ -352,7 +331,7 @@ class EnhancedTaskDetailsDialog:
         search_var = tk.StringVar()
         search_entry = ttk.Entry(header, textvariable=search_var, width=30)
         search_entry.pack(side="left")
-        
+
         def search_log():
             query = search_var.get()
             if query:
