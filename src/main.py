@@ -162,10 +162,9 @@ class TaskQueueUI:
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
         self.auto_refresh_var = tk.BooleanVar(value=False)
-        settings_menu.add_checkbutton(label="Auto Refresh", variable=self.auto_refresh_var,
-                                      command=self.toggle_auto_refresh)
+        settings_menu.add_command(label="Claude Settings", command=self.configure_api_key)
         settings_menu.add_separator()
-        settings_menu.add_command(label="Configure Claude API Key...", command=self.configure_api_key)
+        settings_menu.add_checkbutton(label="Auto Refresh Task List", variable=self.auto_refresh_var, command=self.toggle_auto_refresh)
 
         # About menu
         about_menu = tk.Menu(menubar, tearoff=0)

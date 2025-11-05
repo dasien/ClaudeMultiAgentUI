@@ -27,6 +27,11 @@ class ClaudeSettingsDialog:
             "max_tokens": 8192,
             "description": "Balanced performance, 8K output"
         },
+        "claude-haiku-4-20250514": {
+            "name": "Claude Haiku 4",
+            "max_tokens": 8192,
+            "description": "Fastest and most cost-effective, 8K output"
+        },
     }
 
     # Default model
@@ -39,7 +44,7 @@ class ClaudeSettingsDialog:
 
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Claude API Settings")
-        self.dialog.geometry("600x600")
+        self.dialog.geometry("600x550")
         self.dialog.transient(parent)
         self.dialog.grab_set()
         self.dialog.resizable(False, False)
@@ -123,25 +128,26 @@ class ClaudeSettingsDialog:
 
         self.model_var = tk.StringVar()
 
-        # Create radio buttons for each model
+        # Create dropdown for model selection
+        model_combo = ttk.Combobox(
+            model_frame,
+            textvariable=self.model_var,
+            state='readonly',
+            width=50
+        )
+
+        # Build dropdown values with formatted display names
+        model_display_values = []
+        self.model_id_map = {}  # Map display name to model ID
+
         for model_id, model_info in self.CLAUDE_MODELS.items():
-            rb_frame = ttk.Frame(model_frame)
-            rb_frame.pack(anchor="w", pady=3)
+            display = f"{model_info['name']} — {model_info['description']}"
+            model_display_values.append(display)
+            self.model_id_map[display] = model_id
 
-            ttk.Radiobutton(
-                rb_frame,
-                text=model_info["name"],
-                variable=self.model_var,
-                value=model_id,
-                command=self.on_model_changed
-            ).pack(side="left")
-
-            ttk.Label(
-                rb_frame,
-                text=f"  — {model_info['description']}",
-                font=('Arial', 8),
-                foreground='gray'
-            ).pack(side="left")
+        model_combo['values'] = model_display_values
+        model_combo.pack(fill="x", pady=(0, 10))
+        model_combo.bind('<<ComboboxSelected>>', self.on_model_changed)
 
         # Max Tokens Section
         tokens_frame = ttk.LabelFrame(main_frame, text="Output Token Limit", padding=15)
@@ -212,10 +218,13 @@ class ClaudeSettingsDialog:
         else:
             self.api_key_entry.config(show="•")
 
-    def on_model_changed(self):
+    def on_model_changed(self, event=None):
         """Handle model selection change."""
-        model_id = self.model_var.get()
-        if model_id in self.CLAUDE_MODELS:
+        # Get model ID from display name
+        display_name = self.model_var.get()
+        model_id = self.model_id_map.get(display_name)
+
+        if model_id and model_id in self.CLAUDE_MODELS:
             model_info = self.CLAUDE_MODELS[model_id]
             default_tokens = model_info["max_tokens"]
 
@@ -237,15 +246,19 @@ class ClaudeSettingsDialog:
             self.api_key_var.set(api_key)
 
         # Load model (with default)
-        model = self.settings.get_claude_model()
-        if not model or model not in self.CLAUDE_MODELS:
-            model = self.DEFAULT_MODEL
-        self.model_var.set(model)
+        model_id = self.settings.get_claude_model()
+        if not model_id or model_id not in self.CLAUDE_MODELS:
+            model_id = self.DEFAULT_MODEL
+
+        # Find the display name for this model ID
+        model_info = self.CLAUDE_MODELS[model_id]
+        display_name = f"{model_info['name']} — {model_info['description']}"
+        self.model_var.set(display_name)
 
         # Load max tokens (with default based on model)
         max_tokens = self.settings.get_claude_max_tokens()
         if not max_tokens:
-            max_tokens = self.CLAUDE_MODELS[model]["max_tokens"]
+            max_tokens = self.CLAUDE_MODELS[model_id]["max_tokens"]
         self.max_tokens_var.set(str(max_tokens))
 
         # Trigger model change to update label
@@ -287,17 +300,19 @@ class ClaudeSettingsDialog:
                 return False
 
             # Warn if exceeds model maximum
-            model_id = self.model_var.get()
-            model_max = self.CLAUDE_MODELS[model_id]["max_tokens"]
-            if max_tokens > model_max:
-                if not messagebox.askyesno(
-                        "Token Limit Exceeds Maximum",
-                        f"You've set max tokens to {max_tokens:,}, but {self.CLAUDE_MODELS[model_id]['name']} "
-                        f"has a maximum of {model_max:,}.\n\n"
-                        f"The API will use {model_max:,} tokens maximum.\n\n"
-                        "Continue with this value?"
-                ):
-                    return False
+            display_name = self.model_var.get()
+            model_id = self.model_id_map.get(display_name)
+            if model_id:
+                model_max = self.CLAUDE_MODELS[model_id]["max_tokens"]
+                if max_tokens > model_max:
+                    if not messagebox.askyesno(
+                            "Token Limit Exceeds Maximum",
+                            f"You've set max tokens to {max_tokens:,}, but {self.CLAUDE_MODELS[model_id]['name']} "
+                            f"has a maximum of {model_max:,}.\n\n"
+                            f"The API will use {model_max:,} tokens maximum.\n\n"
+                            "Continue with this value?"
+                    ):
+                        return False
         except ValueError:
             messagebox.showwarning(
                 "Invalid Token Limit",
@@ -317,9 +332,10 @@ class ClaudeSettingsDialog:
             api_key = self.api_key_var.get().strip()
             self.settings.set_claude_api_key(api_key)
 
-            # Save model
-            model = self.model_var.get()
-            self.settings.set_claude_model(model)
+            # Save model (convert display name back to model ID)
+            display_name = self.model_var.get()
+            model_id = self.model_id_map.get(display_name)
+            self.settings.set_claude_model(model_id)
 
             # Save max tokens
             max_tokens = int(self.max_tokens_var.get())
