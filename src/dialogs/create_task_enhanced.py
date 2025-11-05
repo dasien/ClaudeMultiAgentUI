@@ -8,6 +8,8 @@ from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 import json
 import urllib.request
+import threading
+from .claude_working_dialog import ClaudeWorkingDialog
 
 
 class CreateTaskDialog:
@@ -150,7 +152,7 @@ class CreateTaskDialog:
         prompt_label_frame = ttk.Frame(main_frame)
         prompt_label_frame.pack(fill="x", anchor="w")
         ttk.Label(prompt_label_frame, text="Task Description: *").pack(side="left")
-        ttk.Button(prompt_label_frame, text="Generate with AI", command=self.generate_prompt).pack(side="right")
+        ttk.Button(prompt_label_frame, text="Generate with Claude", command=self.generate_prompt).pack(side="right")
 
         self.description_text = tk.Text(main_frame, height=8, wrap="word")
         self.description_text.pack(fill="both", expand=True, pady=(0, 10))
@@ -401,13 +403,13 @@ class CreateTaskDialog:
         task_type = self.get_task_type_key(task_type_display)
 
         context_parts = [f"Task Title: {title}"]
-        
+
         if task_type:
             context_parts.append(f"Task Type: {task_type}")
-        
+
         if agent_display:
             context_parts.append(f"Agent: {agent_display}")
-            
+
             # Include agent skills in context
             skills = self.queue.get_agent_skills(agent_key)
             if skills:
@@ -430,37 +432,46 @@ class CreateTaskDialog:
         except Exception as e:
             print(f"Could not read source: {e}")
 
-        # Show progress
-        progress = tk.Toplevel(self.dialog)
-        progress.title("Generating Description")
-        progress.geometry("350x100")
-        progress.transient(self.dialog)
-        progress.grab_set()
+        context = "\n".join(context_parts)
 
-        progress_frame = ttk.Frame(progress, padding=20)
-        progress_frame.pack(fill="both", expand=True)
+        # Show working dialog
+        working_dialog = ClaudeWorkingDialog(
+            self.dialog,
+            "Generating task description",
+            "15-30 seconds"
+        )
+        working_dialog.show()
 
-        ttk.Label(progress_frame, text="Calling Claude API...", font=('Arial', 10)).pack(pady=(0, 10))
-        progress_bar = ttk.Progressbar(progress_frame, mode='indeterminate', length=250)
-        progress_bar.pack()
-        progress_bar.start()
-        progress.update()
+        # Run API call in separate thread
+        def api_thread():
+            try:
+                generated = self.call_claude_api(context)
+                # Schedule UI update on main thread
+                self.dialog.after(0, lambda: self.on_generation_complete(generated, working_dialog))
+            except Exception as e:
+                # Schedule error handling on main thread
+                self.dialog.after(0, lambda: self.on_generation_error(e, working_dialog))
 
-        try:
-            generated = self.call_claude_api("\n".join(context_parts))
-            progress.destroy()
-            
-            self.description_text.delete('1.0', tk.END)
-            self.description_text.insert('1.0', generated)
+        thread = threading.Thread(target=api_thread, daemon=True)
+        thread.start()
 
-        except Exception as e:
-            progress.destroy()
-            messagebox.showerror("API Error", f"Failed to generate: {e}")
+    def on_generation_complete(self, content, working_dialog):
+        """Handle successful generation (runs on UI thread)."""
+        working_dialog.close()
+        self.description_text.delete('1.0', tk.END)
+        self.description_text.insert('1.0', content)
+
+    def on_generation_error(self, error, working_dialog):
+        """Handle generation error (runs on UI thread)."""
+        working_dialog.close()
+        messagebox.showerror("API Error", f"Failed to generate: {error}")
 
     def call_claude_api(self, context_prompt: str) -> str:
         """Call Claude API to generate task description."""
         api_key = self.settings.get_claude_api_key()
-
+        config = self.settings.get_claude_config()
+        model = config['model']
+        max_tokens = config['max_tokens']
         url = "https://api.anthropic.com/v1/messages"
         headers = {
             "x-api-key": api_key,
@@ -478,9 +489,8 @@ Include:
 - Acceptance criteria"""
 
         data = {
-            "model": "claude-sonnet-4-5-20250929",
-            "max_tokens": 4096,
-            "system": system_prompt,
+            "model": model,  # Use configured model
+            "max_tokens": max_tokens,  # Use configured max tokens
             "messages": [{"role": "user", "content": context_prompt}]
         }
 

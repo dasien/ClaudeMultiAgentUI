@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import json
 import re
+import urllib
 
 
 class EnhancedCreateEditAgentDialog:
@@ -560,11 +561,15 @@ Generate comprehensive agent role definition with:
             progress.destroy()
             messagebox.showerror("Error", f"AI generation failed: {e}")
 
-    def call_claude_api(self, context: str) -> str:
+    def call_claude_api(self, context_prompt: str) -> str:
         """Call Claude API."""
         api_key = self.settings.get_claude_api_key() if self.settings else None
         if not api_key:
             raise Exception("No API key")
+
+        config = self.settings.get_claude_config()
+        model = config['model']
+        max_tokens = config['max_tokens']
 
         url = "https://api.anthropic.com/v1/messages"
         headers = {
@@ -574,9 +579,9 @@ Generate comprehensive agent role definition with:
         }
 
         data = {
-            "model": "claude-sonnet-4-5-20250929",
-            "max_tokens": 8192,
-            "messages": [{"role": "user", "content": context}]
+            "model": model,  # Use configured model
+            "max_tokens": max_tokens,  # Use configured max tokens
+            "messages": [{"role": "user", "content": context_prompt}]
         }
 
         req = urllib.request.Request(url, data=json.dumps(data).encode('utf-8'), headers=headers, method='POST')

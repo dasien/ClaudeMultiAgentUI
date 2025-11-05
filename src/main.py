@@ -6,7 +6,6 @@ Enhanced with Skills, Workflows, and Integration features.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import sys
 from pathlib import Path
 
 from .queue_interface import QueueInterface
@@ -122,31 +121,36 @@ class TaskQueueUI:
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Refresh List", command=self.refresh, accelerator="F5")
 
-        # Workflows menu (NEW)
-        workflows_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Workflows", menu=workflows_menu)
-        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,
-                                   accelerator="Ctrl+W")
+        # Agents menu
+        agents_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Agents", menu=agents_menu)
+        agents_menu.add_command(label="Manage Agents...", command=self.show_agent_manager)
 
-        # Skills menu (NEW)
+        # Skills menu
         skills_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Skills", menu=skills_menu)
         skills_menu.add_command(label="Browse Skills...", command=self.show_skills_viewer, accelerator="Ctrl+K")
         skills_menu.add_separator()
         skills_menu.add_command(label="View Agent Skills...", command=self.show_agent_skills)
 
-        # Integration menu (NEW)
+        # Enhancements menu
+        enhancements_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Enhancements", menu=enhancements_menu)
+        enhancements_menu.add_command(label="Generate...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
+
+        # Workflows menu
+        workflows_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Workflows", menu=workflows_menu)
+        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,
+                                   accelerator="Ctrl+W")
+
+        # Integration menu
         integration_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Integration", menu=integration_menu)
         integration_menu.add_command(label="Integration Dashboard...", command=self.show_integration_dashboard,
                                      accelerator="Ctrl+I")
         integration_menu.add_separator()
         integration_menu.add_command(label="Sync All Unsynced Tasks", command=self.sync_all_tasks)
-
-        # Agents menu
-        agents_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Agents", menu=agents_menu)
-        agents_menu.add_command(label="Manage Agents...", command=self.show_agent_manager)
 
         # Logs menu
         logs_menu = tk.Menu(menubar, tearoff=0)
@@ -172,6 +176,7 @@ class TaskQueueUI:
         self.root.bind('<Control-o>', lambda e: self.show_connect_dialog())
         self.root.bind('<Control-q>', lambda e: self.quit_app())
         self.root.bind('<Control-n>', lambda e: self.create_task())
+        self.root.bind('<Control-e>', lambda e: self.show_enhancement_generator())
         self.root.bind('<Control-w>', lambda e: self.show_workflow_viewer())
         self.root.bind('<Control-k>', lambda e: self.show_skills_viewer())
         self.root.bind('<Control-i>', lambda e: self.show_integration_dashboard())
@@ -446,7 +451,7 @@ class TaskQueueUI:
         """Handle double-click - show enhanced details."""
         task = self.get_selected_task()
         if task:
-            from .dialogs.enhanced_task_details import EnhancedTaskDetailsDialog
+            from .dialogs import EnhancedTaskDetailsDialog
             EnhancedTaskDetailsDialog(self.root, task, self.queue)
 
     def show_context_menu(self, event):
@@ -513,7 +518,7 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs.create_task_enhanced import CreateTaskDialog
+        from .dialogs import CreateTaskDialog
         dialog = CreateTaskDialog(self.root, self.queue, self.settings)
 
         if dialog.result:
@@ -596,7 +601,7 @@ class TaskQueueUI:
         """Show enhanced task details."""
         task = self.get_selected_task()
         if task:
-            from .dialogs.enhanced_task_details import EnhancedTaskDetailsDialog
+            from .dialogs import EnhancedTaskDetailsDialog
             EnhancedTaskDetailsDialog(self.root, task, self.queue)
 
     def show_task_log(self):
@@ -620,7 +625,7 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs.skills_viewer_dialog import SkillsViewerDialog
+        from .dialogs import SkillsViewerDialog
         SkillsViewerDialog(self.root, self.queue)
 
     def show_agent_skills(self):
@@ -672,8 +677,24 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs.workflow_viewer import WorkflowStateViewer
+        from .dialogs import WorkflowStateViewer
         WorkflowStateViewer(self.root, self.queue)
+
+    def show_enhancement_generator(self):
+        """Show enhancement generator dialog."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect to a project first.")
+            return
+
+        from .dialogs import EnhancementGeneratorDialog
+        dialog = EnhancementGeneratorDialog(self.root, self.queue, self.settings)
+
+        if dialog.result:
+            messagebox.showinfo(
+                "Enhancement Created",
+                f"Enhancement file created:\n\n{dialog.result}\n\n"
+                "You can now create a task for this enhancement!"
+            )
 
     def show_integration_dashboard(self):
         """Show integration dashboard."""
@@ -681,7 +702,7 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs.integration_dashboard import IntegrationDashboard
+        from .dialogs import IntegrationDashboard
         IntegrationDashboard(self.root, self.queue)
 
     def show_agent_manager(self):
@@ -690,7 +711,7 @@ class TaskQueueUI:
             messagebox.showwarning("Not Connected", "Please connect first.")
             return
 
-        from .dialogs.agent_manager_dialog import AgentManagerDialog
+        from .dialogs import AgentManagerDialog
         AgentManagerDialog(self.root, self.queue, self.settings)
 
     def show_operations_log(self):
@@ -703,53 +724,9 @@ class TaskQueueUI:
         OperationsLogDialog(self.root, self.queue)
 
     def configure_api_key(self):
-        """Configure Claude API key."""
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Configure Claude API Key")
-        dialog.geometry("500x250")
-        dialog.transient(self.root)
-        dialog.grab_set()
-
-        frame = ttk.Frame(dialog, padding=20)
-        frame.pack(fill="both", expand=True)
-
-        ttk.Label(
-            frame,
-            text="Enter Claude API key for AI-powered features:",
-            wraplength=450
-        ).pack(pady=(0, 10))
-
-        ttk.Label(frame, text="API Key:").pack(anchor="w")
-        api_key_var = tk.StringVar()
-
-        existing = self.settings.get_claude_api_key()
-        if existing:
-            api_key_var.set(existing)
-
-        entry = ttk.Entry(frame, textvariable=api_key_var, width=60, show="*")
-        entry.pack(fill="x", pady=(0, 10))
-
-        show_var = tk.BooleanVar()
-        ttk.Checkbutton(
-            frame,
-            text="Show API Key",
-            variable=show_var,
-            command=lambda: entry.config(show="" if show_var.get() else "*")
-        ).pack(anchor="w")
-
-        button_frame = ttk.Frame(frame)
-        button_frame.pack(pady=20)
-
-        def save():
-            key = api_key_var.get().strip()
-            if key:
-                self.settings.set_claude_api_key(key)
-                dialog.destroy()
-
-        ttk.Button(button_frame, text="Save", command=save).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Clear",
-                   command=lambda: self.settings.clear_claude_api_key() or dialog.destroy()).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side="left", padx=5)
+        """Configure Claude API settings."""
+        from .dialogs import ClaudeSettingsDialog
+        ClaudeSettingsDialog(self.root, self.settings)
 
     def show_about_dialog(self):
         """Show about dialog."""

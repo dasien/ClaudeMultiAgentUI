@@ -52,6 +52,10 @@ class Settings:
         except IOError as e:
             print(f"Warning: Failed to save settings: {e}")
 
+    # =============================================================================
+    # Queue Manager Settings
+    # =============================================================================
+
     def get_last_queue_manager(self) -> Optional[str]:
         """Get the last connected queue manager path.
 
@@ -75,6 +79,10 @@ class Settings:
             del self._data['last_queue_manager']
             self._save()
 
+    # =============================================================================
+    # Claude API Settings
+    # =============================================================================
+
     def get_claude_api_key(self) -> Optional[str]:
         """Get the Claude API key.
 
@@ -97,3 +105,54 @@ class Settings:
         if 'claude_api_key' in self._data:
             del self._data['claude_api_key']
             self._save()
+
+    def get_claude_model(self) -> Optional[str]:
+        """Get the selected Claude model.
+
+        Returns:
+            Model ID (e.g., 'claude-opus-4-20250514') or None if not set
+        """
+        return self._data.get('claude_model')
+
+    def set_claude_model(self, model: str):
+        """Set the Claude model to use.
+
+        Args:
+            model: Model ID (e.g., 'claude-opus-4-20250514')
+        """
+        self._data['claude_model'] = model
+        self._save()
+
+    def get_claude_max_tokens(self) -> Optional[int]:
+        """Get the max tokens setting for Claude API.
+
+        Returns:
+            Max tokens or None if not set
+        """
+        return self._data.get('claude_max_tokens')
+
+    def set_claude_max_tokens(self, max_tokens: int):
+        """Set the max tokens for Claude API calls.
+
+        Args:
+            max_tokens: Maximum tokens for response
+        """
+        self._data['claude_max_tokens'] = max_tokens
+        self._save()
+
+    def get_claude_config(self) -> dict:
+        """Get complete Claude API configuration.
+
+        Returns:
+            Dictionary with 'api_key', 'model', and 'max_tokens'
+            Uses defaults if values not set
+        """
+        # Default values
+        DEFAULT_MODEL = "claude-opus-4-20250514"
+        DEFAULT_MAX_TOKENS = 16384
+
+        return {
+            'api_key': self.get_claude_api_key(),
+            'model': self.get_claude_model() or DEFAULT_MODEL,
+            'max_tokens': self.get_claude_max_tokens() or DEFAULT_MAX_TOKENS
+        }
