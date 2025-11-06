@@ -1,148 +1,42 @@
 """
-Claude Working Dialog - Reusable animated progress dialog for Claude API calls.
-Shows whimsical "Claude-ifying" style messages with spinner animation.
+Claude Working Dialog - Minimal borderless working indicator.
+Shows spinner and whimsical working words in a single line.
 """
 
 import tkinter as tk
-from tkinter import ttk
 import random
 
 
 class WorkingDialog:
-    """Animated progress dialog with Claude's whimsical working messages."""
+    """Minimal animated working indicator - borderless, single line."""
 
     # Unicode spinner frames (braille patterns)
     SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
     # Claude's whimsical working words
     WORKING_WORDS = [
-        # Classic Claude-isms
-        "Claudeifying",
-        "Bedazzling",
-        "Cogitating",
-        "Pondering",
-        "Ruminating",
-        "Contemplating",
-        "Synthesizing",
-        "Analyzing",
-        "Processing",
-        "Computing",
-
-        # Creative thinking
-        "Brainstorming",
-        "Ideating",
-        "Conceptualizing",
-        "Envisioning",
-        "Imagining",
-        "Innovating",
-        "Designing",
-        "Crafting",
-        "Composing",
-        "Formulating",
-
-        # Data/AI themed
-        "Tokenizing",
-        "Embedding",
-        "Inferring",
-        "Predicting",
-        "Modeling",
-        "Optimizing",
-        "Calibrating",
-        "Fine-tuning",
-        "Training",
-        "Learning",
-
-        # Whimsical/fun
-        "Sprinkling magic",
-        "Weaving spells",
-        "Conjuring",
-        "Enchanting",
-        "Transmuting",
-        "Alchemizing",
-        "Mystifying",
-        "Hexing (nicely)",
-        "Bewitching",
-        "Sorcerizing",
-
-        # Professional but fun
-        "Architecting",
-        "Engineering",
-        "Constructing",
-        "Assembling",
-        "Fabricating",
-        "Manufacturing",
-        "Producing",
-        "Generating",
-        "Creating",
-        "Building",
-
-        # Thinking words
-        "Deliberating",
-        "Meditating",
-        "Reflecting",
-        "Considering",
-        "Evaluating",
-        "Examining",
-        "Studying",
-        "Investigating",
-        "Researching",
-        "Exploring",
-
-        # Writing themed
-        "Drafting",
-        "Authoring",
-        "Penning",
-        "Scribing",
-        "Documenting",
-        "Chronicling",
-        "Recording",
-        "Transcribing",
-        "Noting",
-        "Inscribing",
-
-        # Organizational
-        "Organizing",
-        "Structuring",
-        "Arranging",
-        "Categorizing",
-        "Sorting",
-        "Classifying",
-        "Ordering",
-        "Systematizing",
-        "Coordinating",
-        "Orchestrating",
-
-        # Quality focused
-        "Refining",
-        "Polishing",
-        "Perfecting",
-        "Enhancing",
-        "Improving",
-        "Upgrading",
-        "Elevating",
-        "Enriching",
-        "Beautifying",
-        "Optimizing",
-
-        # Fun technical
-        "Compiling",
-        "Parsing",
-        "Rendering",
-        "Transpiling",
-        "Minifying",
-        "Bundling",
-        "Deploying",
-        "Initializing",
-        "Bootstrapping",
-        "Instantiating",
-
-        # More whimsy
-        "Pixel-pushing",
-        "Bit-twiddling",
-        "Quantum-leaping",
-        "Neural-netting",
-        "Cyber-spacing",
-        "Matrix-diving",
+        "Claudeifying", "Bedazzling", "Cogitating", "Pondering", "Ruminating",
+        "Contemplating", "Synthesizing", "Analyzing", "Processing", "Computing",
+        "Brainstorming", "Ideating", "Conceptualizing", "Envisioning", "Imagining",
+        "Innovating", "Designing", "Crafting", "Composing", "Formulating",
+        "Tokenizing", "Embedding", "Inferring", "Predicting", "Modeling",
+        "Optimizing", "Calibrating", "Fine-tuning", "Training", "Learning",
+        "Sprinkling magic", "Weaving spells", "Conjuring", "Enchanting", "Transmuting",
+        "Alchemizing", "Mystifying", "Hexing (nicely)", "Bewitching", "Sorcerizing",
+        "Architecting", "Engineering", "Constructing", "Assembling", "Fabricating",
+        "Manufacturing", "Producing", "Generating", "Creating", "Building",
+        "Deliberating", "Meditating", "Reflecting", "Considering", "Evaluating",
+        "Examining", "Studying", "Investigating", "Researching", "Exploring",
+        "Drafting", "Authoring", "Penning", "Scribing", "Documenting",
+        "Chronicling", "Recording", "Transcribing", "Noting", "Inscribing",
+        "Organizing", "Structuring", "Arranging", "Categorizing", "Sorting",
+        "Classifying", "Ordering", "Systematizing", "Coordinating", "Orchestrating",
+        "Refining", "Polishing", "Perfecting", "Enhancing", "Improving",
+        "Upgrading", "Elevating", "Enriching", "Beautifying", "Optimizing",
+        "Compiling", "Parsing", "Rendering", "Transpiling", "Minifying",
+        "Bundling", "Deploying", "Initializing", "Bootstrapping", "Instantiating",
+        "Pixel-pushing", "Bit-twiddling", "Quantum-leaping", "Neural-netting",
+        "Cyber-spacing", "Matrix-diving",
     ]
 
     def __init__(self, parent, message="Generating", estimated_time="15-30 seconds"):
@@ -150,36 +44,36 @@ class WorkingDialog:
 
         Args:
             parent: Parent window
-            message: Base message (e.g., "Generating enhancement")
-            estimated_time: Estimated time string (e.g., "15-30 seconds")
+            message: Not displayed (kept for backward compatibility)
+            estimated_time: Not displayed (kept for backward compatibility)
         """
         self.parent = parent
-        self.base_message = message
-        self.estimated_time = estimated_time
-
         self.dialog = None
-
-        # Animation state
         self.spinner_index = 0
-        self.word_index = 0
         self.current_word = random.choice(self.WORKING_WORDS)
         self.spinner_id = None
         self.word_id = None
 
     def show(self):
-        """Show the working dialog and start animations."""
+        """Show the minimal working dialog and start animations."""
         if self.dialog:
-            return  # Already shown
+            return
 
         self.dialog = tk.Toplevel(self.parent)
-        self.dialog.title("Working")
-        self.dialog.geometry("400x150")
-        self.dialog.transient(self.parent)
-        self.dialog.resizable(False, False)
 
-        # Center on parent
+        # Remove window decorations - no title bar or buttons
+        self.dialog.overrideredirect(True)
+
+        # Small size - single line
+        self.dialog.geometry("240x60")
+
+        # Stay on top of other windows
+        self.dialog.attributes('-topmost', True)
+
+        # White background with subtle gray border
+        self.dialog.configure(bg='#FFFFFF', highlightbackground='#CCCCCC', highlightthickness=1)
+
         self.center_on_parent()
-
         self.build_ui()
         self.start_animation()
 
@@ -195,53 +89,43 @@ class WorkingDialog:
         parent_width = self.parent.winfo_width()
         parent_height = self.parent.winfo_height()
 
-        dialog_width = self.dialog.winfo_width()
-        dialog_height = self.dialog.winfo_height()
-
-        x = parent_x + (parent_width // 2) - (dialog_width // 2)
-        y = parent_y + (parent_height // 2) - (dialog_height // 2)
+        x = parent_x + (parent_width // 2) - 175  # Half of 350
+        y = parent_y + (parent_height // 2) - 30  # Half of 60
 
         self.dialog.geometry(f"+{x}+{y}")
 
     def build_ui(self):
-        """Build the dialog UI."""
-        main_frame = ttk.Frame(self.dialog, padding=30)
+        """Build minimal UI - just spinner and text on one line."""
+        # Main frame
+        main_frame = tk.Frame(self.dialog, bg='#FFFFFF', padx=15, pady=15)
         main_frame.pack(fill="both", expand=True)
 
-        # Spinner and working word
-        self.spinner_label = ttk.Label(
-            main_frame,
+        # Horizontal layout
+        content_frame = tk.Frame(main_frame, bg='#FFFFFF')
+        content_frame.pack(expand=True)
+
+        # Spinner (left)
+        self.spinner_label = tk.Label(
+            content_frame,
             text="⠋",
-            font=('Arial', 24),
-            foreground='#6366f1'  # Indigo color
+            font=('Arial', 20),
+            foreground='#6366f1',
+            bg='#FFFFFF'
         )
-        self.spinner_label.pack(pady=(0, 10))
+        self.spinner_label.pack(side="left", padx=(0, 10))
 
-        self.working_label = ttk.Label(
-            main_frame,
+        # Working word (right)
+        self.working_label = tk.Label(
+            content_frame,
             text=f"{self.current_word}...",
-            font=('Arial', 12, 'bold'),
-            foreground='#6366f1'
+            font=('Arial', 11, 'bold'),
+            foreground='#6366f1',
+            bg='#FFFFFF'
         )
-        self.working_label.pack(pady=(0, 15))
-
-        # Base message
-        ttk.Label(
-            main_frame,
-            text=self.base_message,
-            font=('Arial', 10)
-        ).pack(pady=(0, 5))
-
-        # Estimated time
-        ttk.Label(
-            main_frame,
-            text=f"This typically takes {self.estimated_time}",
-            font=('Arial', 9),
-            foreground='gray'
-        ).pack()
+        self.working_label.pack(side="left")
 
     def start_animation(self):
-        """Start the spinner and word animations."""
+        """Start both animations."""
         self.animate_spinner()
         self.animate_word()
 
@@ -253,24 +137,20 @@ class WorkingDialog:
         self.spinner_index = (self.spinner_index + 1) % len(self.SPINNER_FRAMES)
         self.spinner_label.config(text=self.SPINNER_FRAMES[self.spinner_index])
 
-        # Update every 80ms for smooth animation
         self.spinner_id = self.dialog.after(80, self.animate_spinner)
 
     def animate_word(self):
-        """Change the working word every few seconds."""
+        """Change the working word every 10 seconds."""
         if not self.dialog or not self.dialog.winfo_exists():
             return
 
-        # Pick a new random word
         new_word = random.choice(self.WORKING_WORDS)
-        # Make sure it's different from current
         while new_word == self.current_word and len(self.WORKING_WORDS) > 1:
             new_word = random.choice(self.WORKING_WORDS)
 
         self.current_word = new_word
         self.working_label.config(text=f"{self.current_word}...")
 
-        # Change word every 10 seconds
         self.word_id = self.dialog.after(10000, self.animate_word)
 
     def stop_animation(self):

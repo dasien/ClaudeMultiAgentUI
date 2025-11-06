@@ -1,6 +1,5 @@
 """
 Operations log dialog for viewing queue operations log.
-REFACTORED to use BaseDialog.
 """
 
 import tkinter as tk

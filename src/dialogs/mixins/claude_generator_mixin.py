@@ -7,8 +7,9 @@ import threading
 from typing import Optional, Callable
 from tkinter import messagebox
 
-from src.utils.claude_api_client import ClaudeAPIClient
-from ..working import WorkingDialog
+from ..working import  WorkingDialog
+from ...utils.claude_api_client import ClaudeAPIClient
+
 
 class ClaudeGeneratorMixin:
     """
@@ -58,7 +59,7 @@ class ClaudeGeneratorMixin:
                           system_prompt: Optional[str] = None,
                           message: str = "Generating",
                           estimate: str = "30-60 seconds",
-                          timeout: int = 60,
+                          timeout: Optional[int] = None,
                           on_success: Optional[Callable[[str], None]] = None,
                           on_error: Optional[Callable[[Exception], None]] = None):
         """
@@ -69,7 +70,7 @@ class ClaudeGeneratorMixin:
             system_prompt: Optional system prompt
             message: Message for working dialog
             estimate: Time estimate for working dialog
-            timeout: API timeout in seconds
+            timeout: API timeout in seconds (uses configured timeout if None)
             on_success: Callback called with result on success
             on_error: Callback called with exception on error
         """
@@ -90,7 +91,7 @@ class ClaudeGeneratorMixin:
         def api_thread():
             try:
                 result = self.api_client.call(context, system_prompt, timeout)
-                # Schedule success callback on UI thread
+                # Schedule success callback on UI thread (use self.dialog not working_dialog!)
                 self.dialog.after(0, lambda: self._handle_success(result, on_success))
             except Exception as error:
                 # Schedule error callback on UI thread

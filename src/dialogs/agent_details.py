@@ -1,7 +1,5 @@
 """
 Enhanced Agent Manager with skills editing support.
-v3.0 - Includes visual skills assignment and prompt preview.
-REFACTORED to use BaseDialog and ClaudeGeneratorMixin.
 """
 
 import tkinter as tk
@@ -532,7 +530,7 @@ Generate comprehensive agent role definition with:
             system_prompt=None,  # No system prompt for this one
             message="Generating agent role definition",
             estimate="30-60 seconds",
-            timeout=90,
+            # timeout will use configured value from settings
             on_success=self.on_generation_complete,
             on_error=self.on_generation_error
         )

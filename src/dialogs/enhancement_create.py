@@ -1,14 +1,15 @@
 """
 Enhancement Generator Dialog - Create enhancement files with Claude API assistance.
-REFACTORED to use BaseDialog and ClaudeGeneratorMixin.
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
+from datetime import date
+
 from .base_dialog import BaseDialog
 from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
-from src.utils import to_slug, validate_slug, PathUtils
+from ..utils import to_slug, validate_slug, PathUtils
 
 
 class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
@@ -23,7 +24,7 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         self.reference_files = []
 
         self.build_ui()
-        self.show()  # From BaseDialog - cleaner!
+        self.show()  # Changed from wait() to show()
 
     def build_ui(self):
         """Build the dialog UI."""
@@ -293,7 +294,7 @@ Generate detailed, comprehensive content for each section. Be specific and actio
             system_prompt=system_prompt,
             message="Generating enhancement specification",
             estimate="30-60 seconds",
-            timeout=60,
+            # timeout will use configured value from settings
             on_success=lambda content: self.on_generation_complete(content, title, filename, directory),
             on_error=self.on_generation_error
         )

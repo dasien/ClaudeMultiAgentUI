@@ -142,6 +142,23 @@ class Settings:
         self._data['claude_max_tokens'] = max_tokens
         self._save()
 
+    def get_claude_timeout(self) -> Optional[int]:
+        """Get the timeout setting for Claude API calls.
+
+        Returns:
+            Timeout in seconds or None if not set
+        """
+        return self._data.get('claude_timeout')
+
+    def set_claude_timeout(self, timeout: int):
+        """Set the timeout for Claude API calls.
+
+        Args:
+            timeout: Timeout in seconds
+        """
+        self._data['claude_timeout'] = timeout
+        self._save()
+
     def get_claude_config(self) -> dict:
         """Get complete Claude API configuration.
 

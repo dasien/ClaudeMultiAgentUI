@@ -31,14 +31,14 @@ class ClaudeAPIClient:
         self.settings = settings
 
     def call(self, context: str, system_prompt: Optional[str] = None,
-             timeout: int = 60) -> str:
+             timeout: Optional[int] = None) -> str:
         """
         Call Claude API with configured settings.
 
         Args:
             context: User message/context to send
             system_prompt: Optional system prompt for guidance
-            timeout: Request timeout in seconds (default 60)
+            timeout: Request timeout in seconds (uses configured timeout if None)
 
         Returns:
             Claude's response text
@@ -55,6 +55,16 @@ class ClaudeAPIClient:
         api_key = config['api_key']
         model = config['model']
         max_tokens = config['max_tokens']
+
+        # Use configured timeout if not specified
+        if timeout is None:
+            timeout = config.get('timeout')  # Already has ClaudeConfig.DEFAULT_TIMEOUT as fallback in settings.py
+            if timeout is None:
+                # This should never happen if settings.py is working correctly
+                from ..config import ClaudeConfig
+                timeout = ClaudeConfig.DEFAULT_TIMEOUT
+
+        print(f"[DEBUG] Claude API call - Model: {model}, Max Tokens: {max_tokens}, Timeout: {timeout}s")
 
         # Build request
         headers = {
@@ -89,8 +99,20 @@ class ClaudeAPIClient:
             error_body = e.read().decode('utf-8')
             raise Exception(f"API Error ({e.code}): {error_body}")
         except urllib.error.URLError as e:
+            if "timed out" in str(e.reason).lower():
+                raise Exception(
+                    f"Request timed out after {timeout} seconds.\n\n"
+                    f"Try increasing timeout in Settings > Claude Settings.\n"
+                    f"Complex enhancements may need 120-180 seconds."
+                )
             raise Exception(f"Network Error: {e.reason}")
         except Exception as e:
+            if "timed out" in str(e).lower():
+                raise Exception(
+                    f"Request timed out after {timeout} seconds.\n\n"
+                    f"Try increasing timeout in Settings > Claude Settings.\n"
+                    f"Complex enhancements may need 120-180 seconds."
+                )
             raise Exception(f"API call failed: {e}")
 
     def is_configured(self) -> bool:

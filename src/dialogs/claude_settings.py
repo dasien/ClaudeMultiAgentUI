@@ -1,5 +1,6 @@
 """
 Claude API Settings Dialog
+Manages Claude API configuration including API key, model, and max tokens.
 """
 
 import tkinter as tk
@@ -13,7 +14,7 @@ class ClaudeSettingsDialog(BaseDialog):
     """Dialog for configuring Claude API settings."""
 
     def __init__(self, parent, settings):
-        super().__init__(parent, "Claude API Settings", 600, 550, resizable=False)
+        super().__init__(parent, "Claude API Settings", 600, 680, resizable=False)
         self.settings = settings
         self.build_ui()
         self.load_current_settings()
@@ -124,6 +125,42 @@ class ClaudeSettingsDialog(BaseDialog):
             wraplength=550
         ).pack(anchor="w", pady=(5, 0))
 
+        # Timeout Section
+        timeout_frame = ttk.LabelFrame(main_frame, text="Request Timeout", padding=15)
+        timeout_frame.pack(fill="x", pady=(0, 15))
+
+        ttk.Label(
+            timeout_frame,
+            text="Maximum time to wait for Claude's response:",
+            font=('Arial', 9)
+        ).pack(anchor="w", pady=(0, 5))
+
+        timeout_entry_frame = ttk.Frame(timeout_frame)
+        timeout_entry_frame.pack(fill="x", pady=(0, 5))
+
+        self.timeout_var = tk.StringVar()
+        self.timeout_entry = ttk.Entry(
+            timeout_entry_frame,
+            textvariable=self.timeout_var,
+            width=10
+        )
+        self.timeout_entry.pack(side="left")
+
+        ttk.Label(
+            timeout_entry_frame,
+            text="seconds",
+            font=('Arial', 9),
+            foreground='gray'
+        ).pack(side="left", padx=(10, 0))
+
+        ttk.Label(
+            timeout_frame,
+            text="Longer timeouts allow for complex generations. Default: 90 seconds.",
+            font=('Arial', 8),
+            foreground='gray',
+            wraplength=550
+        ).pack(anchor="w", pady=(5, 0))
+
         # Buttons - Using BaseDialog helper
         self.create_button_frame(main_frame, [
             ("Save Settings", self.save_settings),
@@ -178,6 +215,12 @@ class ClaudeSettingsDialog(BaseDialog):
             max_tokens = ClaudeConfig.get_max_tokens(model_id)
         self.max_tokens_var.set(str(max_tokens))
 
+        # Load timeout (with default)
+        timeout = self.settings.get_claude_timeout()
+        if not timeout:
+            timeout = ClaudeConfig.DEFAULT_TIMEOUT
+        self.timeout_var.set(str(timeout))
+
         # Trigger model change to update label
         self.on_model_changed()
 
@@ -189,12 +232,14 @@ class ClaudeSettingsDialog(BaseDialog):
                 "Reset to Defaults",
                 "Reset Claude settings to defaults?\n\n"
                 f"Model: {default_model_info['name']}\n"
-                f"Max Tokens: {default_model_info['max_tokens']:,}\n\n"
+                f"Max Tokens: {default_model_info['max_tokens']:,}\n"
+                f"Timeout: {ClaudeConfig.DEFAULT_TIMEOUT} seconds\n\n"
                 "Your API key will not be changed."
         ):
             display_name = ClaudeConfig.get_display_name(ClaudeConfig.DEFAULT_MODEL)
             self.model_var.set(display_name)
             self.max_tokens_var.set(str(ClaudeConfig.DEFAULT_MAX_TOKENS))
+            self.timeout_var.set(str(ClaudeConfig.DEFAULT_TIMEOUT))
             self.on_model_changed()
 
     def validate(self) -> bool:
@@ -238,6 +283,30 @@ class ClaudeSettingsDialog(BaseDialog):
             messagebox.showwarning(
                 "Invalid Token Limit",
                 "Max tokens must be a number."
+            )
+            return False
+
+        # Validate timeout
+        try:
+            timeout = int(self.timeout_var.get())
+            if timeout < 10:
+                messagebox.showwarning(
+                    "Invalid Timeout",
+                    "Timeout must be at least 10 seconds."
+                )
+                return False
+            if timeout > 300:
+                if not messagebox.askyesno(
+                        "Very Long Timeout",
+                        f"You've set timeout to {timeout} seconds (5+ minutes).\n\n"
+                        "This is unusually long and may cause the UI to appear frozen.\n\n"
+                        "Continue with this value?"
+                ):
+                    return False
+        except ValueError:
+            messagebox.showwarning(
+                "Invalid Timeout",
+                "Timeout must be a number."
             )
             return False
 

@@ -1,6 +1,5 @@
 """
 Enhanced Create Task Dialog with skills preview and quick workflows.
-v3.0 - Includes skills display and workflow templates.
 """
 
 import tkinter as tk
@@ -423,7 +422,7 @@ Include:
             system_prompt=system_prompt,
             message="Generating task description",
             estimate="15-30 seconds",
-            timeout=30,
+            # timeout will use configured value from settings
             on_success=self.on_generation_complete,
             on_error=self.on_generation_error
         )

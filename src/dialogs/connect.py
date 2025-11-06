@@ -1,7 +1,6 @@
 """
 Connect dialog for selecting a v3.0 CMAT project.
 Validates v3.0 structure including cmat.sh, skills, and contracts.
-REFACTORED to use BaseDialog.
 """
 
 import tkinter as tk

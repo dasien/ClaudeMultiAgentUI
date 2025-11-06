@@ -1,5 +1,5 @@
 """
-Configuration settings for the Task Queue Manager.
+Configuration settings for the CMAT system.
 """
 
 from typing import Dict, List
@@ -80,9 +80,10 @@ class ClaudeConfig:
         },
     }
 
-    # Default model and tokens
+    # Default settings
     DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
     DEFAULT_MAX_TOKENS = 8192
+    DEFAULT_TIMEOUT = 300  # seconds - generous for long generations
 
     @classmethod
     def get_display_name(cls, model_id: str) -> str:
