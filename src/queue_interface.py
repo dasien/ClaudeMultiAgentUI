@@ -130,6 +130,22 @@ class QueueInterface:
             args.append(reason)
         self._run_command(*args)
 
+    def clear_finished_tasks(self):
+        """Clear all completed and failed tasks from history.
+
+        This removes completed and failed tasks but leaves pending and active tasks intact.
+        Uses --force to bypass confirmation prompts.
+        """
+        self._run_command("queue", "clear-finished", "--force")
+
+    def reset_queue(self):
+        """Reset the entire queue system to empty state.
+
+        This clears all tasks (pending, active, completed, failed) and resets logs.
+        Uses --force to bypass confirmation prompts.
+        """
+        self._run_command("queue", "init", "--force")
+
     def fail_task(self, task_id: str, error: str = ""):
         """Fail a task."""
         args = ["queue", "fail", task_id]

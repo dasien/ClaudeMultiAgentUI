@@ -175,3 +175,30 @@ class Settings:
             'model': self.get_claude_model() or DEFAULT_MODEL,
             'max_tokens': self.get_claude_max_tokens() or DEFAULT_MAX_TOKENS
         }
+
+    # =============================================================================
+    # CMAT Installation Settings
+    # =============================================================================
+
+    def get_last_install_directory(self) -> Optional[str]:
+        """Get the last used CMAT installation directory.
+
+        Returns:
+            Path to last install directory or None if not set
+        """
+        return self._data.get('last_install_directory')
+
+    def set_last_install_directory(self, path: str):
+        """Set the last used CMAT installation directory.
+
+        Args:
+            path: Path to directory
+        """
+        self._data['last_install_directory'] = path
+        self._save()
+
+    def clear_last_install_directory(self):
+        """Clear the last install directory."""
+        if 'last_install_directory' in self._data:
+            del self._data['last_install_directory']
+            self._save()

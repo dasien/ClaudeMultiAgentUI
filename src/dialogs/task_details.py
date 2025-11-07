@@ -16,7 +16,7 @@ class TaskDetailsDialog(BaseDialog):
     """Enhanced dialog for viewing task details with skills usage."""
 
     def __init__(self, parent, task, queue_interface):
-        super().__init__(parent, "Task Details", 750, 650)
+        super().__init__(parent, "Task Details", 770, 650)
         self.task = task
         self.queue = queue_interface
 
@@ -36,9 +36,9 @@ class TaskDetailsDialog(BaseDialog):
         general_tab = self.build_general_tab(notebook)
         notebook.add(general_tab, text="General Info")
 
-        # Tab 2: Details
+        # Tab 2: Prompt
         details_tab = self.build_details_tab(notebook)
-        notebook.add(details_tab, text="Details")
+        notebook.add(details_tab, text="Prompt")
 
         # Bottom buttons
         button_frame = ttk.Frame(main_frame)
@@ -130,14 +130,8 @@ class TaskDetailsDialog(BaseDialog):
             ttk.Label(scrollable_frame, text="Result:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
             ttk.Label(scrollable_frame, text=self.task.result, wraplength=650).pack(anchor="w")
 
-        return scrollable_frame
-
-    def build_details_tab(self, parent):
-        """Build Details tab."""
-        scrollable_frame = ttk.Frame(parent, padding=20)
-        scrollable_frame.pack(fill="both", expand=True)
-
         # SKILLS SECTION
+        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=15)
         skills_frame = ttk.LabelFrame(scrollable_frame, text="🎯 Skills", padding=10)
         skills_frame.pack(fill="x", pady=(0, 15))
 
@@ -197,81 +191,28 @@ class TaskDetailsDialog(BaseDialog):
                 foreground='gray'
             ).pack(anchor="w")
 
-        # Contract validation
-        if self.task.status in ['completed', 'active']:
-            ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
-            contract_frame = ttk.LabelFrame(scrollable_frame, text="Contract Validation", padding=10)
-            contract_frame.pack(fill="x", pady=(0, 15))
+        return scrollable_frame
 
-            all_valid, messages = self.queue.validate_agent_outputs(
-                self.task.assigned_agent,
-                self.task.source_file
-            )
+    def build_details_tab(self, parent):
+        """Build Prompt tab."""
+        scrollable_frame = ttk.Frame(parent, padding=20)
+        scrollable_frame.pack(fill="both", expand=True)
 
-            for msg in messages:
-                color = 'green' if '✓' in msg else 'red'
-                ttk.Label(contract_frame, text=msg, foreground=color, font=('Arial', 9)).pack(anchor="w", pady=1)
-
-            # Next agent info
-            if self.task.result and self.task.status == 'completed':
-                status_code = self.task.result.split(' -')[0].strip()
-                next_agents = self.queue.get_next_agents(self.task.assigned_agent, status_code)
-
-                if next_agents:
-                    next_names = [self.queue.get_agent_list().get(a, a) for a in next_agents]
-                    ttk.Label(
-                        contract_frame,
-                        text=f"Next Agent: {', '.join(next_names)}",
-                        foreground='blue',
-                        font=('Arial', 9, 'bold')
-                    ).pack(anchor="w", pady=(5, 0))
-
-            # Expected output
-            expected = self.queue.get_expected_output_path(self.task.assigned_agent, self.task.source_file)
-            if expected:
-                expected_path = self.queue.project_root / expected
-                exists = expected_path.exists()
-
-                ttk.Label(
-                    contract_frame,
-                    text=f"Expected Output: {expected} {'✓' if exists else '✗'}",
-                    foreground='green' if exists else 'orange',
-                    font=('Arial', 9)
-                ).pack(anchor="w", pady=(5, 0))
-
-        # Description
-        ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
-        ttk.Label(scrollable_frame, text="Description:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        # Prompt/Description - taking full space
+        ttk.Label(scrollable_frame, text="Task Prompt:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
 
         desc_frame = ttk.Frame(scrollable_frame)
-        desc_frame.pack(fill="x", pady=(0, 15))
+        desc_frame.pack(fill="both", expand=True, pady=(0, 15))
 
-        desc_text = tk.Text(desc_frame, height=5, wrap="word", state=tk.NORMAL, width=80)
+        desc_text = tk.Text(desc_frame, wrap="word", state=tk.NORMAL)
         desc_scroll = ttk.Scrollbar(desc_frame, command=desc_text.yview)
         desc_text.configure(yscrollcommand=desc_scroll.set)
 
-        desc_text.pack(side="left", fill="x", expand=True)
+        desc_text.pack(side="left", fill="both", expand=True)
         desc_scroll.pack(side="right", fill="y")
 
         desc_text.insert('1.0', self.task.description)
         desc_text.config(state=tk.DISABLED)
-
-        # External Integration
-        if self.task.metadata:
-            ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
-            ttk.Label(scrollable_frame, text="External Integration:", font=('Arial', 10, 'bold')).pack(anchor="w",
-                                                                                                       pady=(0, 5))
-
-            meta_frame = ttk.Frame(scrollable_frame)
-            meta_frame.pack(fill="x")
-
-            for key, value in self.task.metadata.items():
-                if value and value != 'null':
-                    row = ttk.Frame(meta_frame)
-                    row.pack(fill="x", pady=1)
-
-                    ttk.Label(row, text=f"{key}:", font=('Arial', 9), width=20).pack(side="left")
-                    ttk.Label(row, text=str(value), font=('Arial', 9), foreground='blue').pack(side="left")
 
         return scrollable_frame
 

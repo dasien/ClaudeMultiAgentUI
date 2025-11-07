@@ -6,7 +6,7 @@ This document describes the process to get up and running with the Multi-Agent T
 
 - Python 3.7 or higher
 - Tkinter (usually included with Python)
-- A CMAT v3.0 project
+- A CMAT project (or you can install one via the UI)
 
 ## Step 1: Verify Python Installation
 
@@ -36,7 +36,30 @@ python3 run.py
 
 The application window opens.
 
-## Step 3: Connect to Your CMAT v3.0 Project
+## Step 3: Get a CMAT Project
+
+You can either install a new CMAT project or connect to an existing one.
+
+### Option A: Install CMAT Template (NEW!)
+
+If you don't have a CMAT project yet:
+
+1. Click **File > Install CMAT Template...**
+2. Select a directory where you want to install CMAT
+   - Example: `~/repos/MyNewProject/`
+   - A `.claude/` folder will be created here
+3. Click **Install**
+4. Watch the progress bar as CMAT is downloaded from GitHub
+5. When complete, click **Connect Now** to immediately connect
+
+The installer will:
+- Download the latest CMAT template from GitHub
+- Create a `.claude/` folder with all necessary files
+- Validate the installation for security and completeness
+
+### Option B: Connect to Existing Project
+
+If you already have a CMAT project:
 
 1. Click **File > Connect...** (or press `Ctrl+O`)
 2. Click **Browse...**
@@ -49,10 +72,10 @@ The application window opens.
    - ✓ Agent contracts (`.claude/AGENT_CONTRACTS.json`)
    - ✓ Skills system (`.claude/skills/skills.json`)
    - ✓ Agents (`.claude/agents/agents.json`)
-6. Should show: **✓ Valid CMAT v3.0 Project**
+6. Should show: **✓ Valid CMAT Project**
 7. Click **Connect**
 
-The header bar now shows: `Connected: /path/to/your/project` and `CMAT v3.0.0`
+The header bar now shows: `Connected: /path/to/your/project` and `CMAT .0`
 
 ## Step 4: Configure Claude API (Optional)
 
@@ -134,10 +157,10 @@ Enhancement saved to: `enhancements/add-login-feature/add-login-feature.md`
 
 ## Common First-Time Issues
 
-### "Not a valid CMAT v3.0 project"
+### "Not a valid CMAT project"
 - Make sure you're selecting the **project root**, not a subdirectory
 - The project root contains `.claude/` folder
-- CMAT v3.0 has `cmat.sh` not `queue_manager.sh`
+- CMAT has `cmat.sh` not `queue_manager.sh`
 - If you have v2.0 or earlier, upgrade your template
 
 ### "No such file or directory"
@@ -202,6 +225,7 @@ Enhancement saved to: `enhancements/add-login-feature/add-login-feature.md`
 - `Escape` - Close dialog
 
 ### Most Used Menus
+- **File > Install CMAT Template...** - Install new CMAT project
 - **File > Connect...** - Switch projects
 - **Enhancements > Generate...** - Create enhancement files
 - **Tasks > Create Task...** - Create new task

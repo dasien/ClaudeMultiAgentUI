@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Task Queue Manager v3.0
+Multi-Agent Task Queue Manager
 Enhanced with Skills, Workflows, and Integration features.
 """
 
@@ -22,7 +22,7 @@ except ImportError:
 
 
 class TaskQueueUI:
-    """Main application window for Task Queue Manager v3.0."""
+    """Main application window for Task Queue Manager."""
 
     def __init__(self, root):
         self.root = root
@@ -102,14 +102,17 @@ class TaskQueueUI:
             print(f"Could not set window icon: {e}")
 
     def build_menu_bar(self):
-        """Create enhanced menu bar with v3.0 features."""
+        """Create enhanced menu bar."""
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
         # File menu
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Install...", command=self.show_install_cmat_dialog)
         file_menu.add_command(label="Connect...", command=self.show_connect_dialog, accelerator="Ctrl+O")
+        file_menu.add_separator()
+        file_menu.add_command(label="Reset Queue...", command=self.reset_queue)
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.quit_app, accelerator="Ctrl+Q")
 
@@ -119,6 +122,7 @@ class TaskQueueUI:
         tasks_menu.add_command(label="Create Task...", command=self.create_task, accelerator="Ctrl+N")
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Cancel All Tasks", command=self.cancel_all_tasks)
+        tasks_menu.add_command(label="Clear Finished...", command=self.clear_finished_tasks)
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Refresh List", command=self.refresh, accelerator="F5")
 
@@ -323,6 +327,26 @@ class TaskQueueUI:
         dialog = ConnectDialog(self.root)
         if dialog.result:
             self.connect_to_queue(dialog.result)
+
+    def show_install_cmat_dialog(self):
+        """Show CMAT installer dialog."""
+        from .dialogs.install_cmat import InstallCMATDialog
+
+        dialog = InstallCMATDialog(self.root, self.settings)
+
+        # If installation succeeded and user wants to connect
+        if dialog.result and dialog.result.get("success") and dialog.result.get("connect"):
+            project_root = dialog.result["project_root"]
+            cmat_script = Path(project_root) / ".claude" / "scripts" / "cmat.sh"
+
+            # Use existing connection logic
+            if cmat_script.exists():
+                self.connect_to_queue(str(cmat_script))
+            else:
+                messagebox.showwarning(
+                    "Connection Failed",
+                    f"Could not find cmat.sh at expected location:\n{cmat_script}"
+                )
 
     def try_auto_connect(self):
         """Try to auto-connect to last project."""
@@ -569,6 +593,48 @@ class TaskQueueUI:
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed: {e}")
+
+    def clear_finished_tasks(self):
+        """Clear all completed and failed tasks from the queue."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        response = messagebox.askyesno(
+            "Clear Finished Tasks",
+            "This will clear all Completed and Failed tasks from the queue.\n\n"
+            "Pending and Active tasks will remain.\n\n"
+            "Are you sure you want to proceed?"
+        )
+
+        if response:
+            try:
+                self.queue.clear_finished_tasks()
+                messagebox.showinfo("Success", "All completed and failed tasks have been cleared.")
+                self.refresh()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to clear finished tasks: {e}")
+
+    def reset_queue(self):
+        """Reset the entire queue system to empty state."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        response = messagebox.askyesno(
+            "Reset Queue",
+            "This will reset all queues and logs to an empty state.\n\n"
+            "ALL tasks (Pending, Active, Completed, and Failed) will be cleared.\n\n"
+            "Are you sure?"
+        )
+
+        if response:
+            try:
+                self.queue.reset_queue()
+                messagebox.showinfo("Success", "Queue has been reset to empty state.")
+                self.refresh()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to reset queue: {e}")
 
     def sync_task(self, task_id: str):
         """Sync task to external systems."""

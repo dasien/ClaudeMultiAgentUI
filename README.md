@@ -1,6 +1,6 @@
 # Multi-Agent Task Queue Manager
 
-A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v3.0.
+A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
 
 ![Version](https://img.shields.io/badge/version-1.0.3-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
@@ -14,12 +14,12 @@ A graphical user interface for managing multi-agent development workflows using 
 - ⚡ **Quick Actions** - Create & Start button for immediate task execution
 - 🔧 **Auto Complete & Chain** - Automated task completion and chaining workflows
 - 🔄 **Auto-Refresh** - Real-time updates of task status
-- 🎯 **Multi-Project Support** - Connect to different CMAT v3.0 projects
+- 🎯 **Multi-Project Support** - Connect to different CMAT projects
 - 📊 **Operations Log Viewer** - Track all queue operations
 - 🎨 **Clean UI** - Simple, intuitive Tkinter interface
 - 🚀 **Zero External Dependencies** - Uses only Python standard library
 
-### v3.0 Enhanced Features
+###  Enhanced Features
 - 🎯 **Skills Management** - Browse skills, view agent skills, preview skills prompts
 - 📝 **Enhancement Generator** - AI-assisted creation of enhancement specification files
 - 🔄 **Workflow Visualization** - View active workflows and their progress
@@ -49,7 +49,7 @@ Double-click any task to view complete details including description, timestamps
 
 - Python 3.7 or higher
 - Tkinter (included with Python)
-- A project using the Claude Multi-Agent Development Template v3.0
+- A project using the Claude Multi-Agent Development Template  (or install one via the UI)
 - Claude API key (optional, for AI-powered features)
 
 ## Installation
@@ -78,13 +78,36 @@ python3 -m src.main
 ./run.py
 ```
 
-### 2. Connect to a CMAT v3.0 Project
+### 2. Get a CMAT Project
+
+You can either connect to an existing CMAT project or install a new one.
+
+#### Option A: Install CMAT Template (NEW!)
+
+If you don't have a CMAT project yet, you can install one directly:
+
+1. Click **File > Install CMAT Template...**
+2. Select or enter the directory where you want to install CMAT
+3. The dialog validates the directory and warns if `.claude/` already exists
+4. Click **Install** to download and install CMAT from GitHub
+5. Watch the progress bar as files are downloaded and installed
+6. When complete, click **Connect Now** to immediately connect to the new project
+
+The installer:
+- Downloads the latest CMAT template from GitHub
+- Creates a `.claude/` folder with all necessary files
+- Creates a backup if overwriting an existing installation
+- Validates the installation for security and completeness
+
+#### Option B: Connect to Existing Project
+
+If you already have a CMAT project:
 
 1. Click **File > Connect...**
 2. Click **Browse...**
 3. Navigate to your CMAT project root directory
 4. Select the project root (containing `.claude/` folder)
-5. The UI will validate the v3.0 project structure
+5. The UI will validate the  project structure
 6. Click **Connect**
 
 The validation checks for:
@@ -278,6 +301,7 @@ Standard workflow: Requirements Analyst → Architect → Implementer → Tester
 ## Menu Structure
 
 - **File**
+  - Install CMAT Template... ⭐ NEW
   - Connect... (`Ctrl+O`)
   - Quit (`Ctrl+Q`)
 
@@ -355,7 +379,7 @@ ClaudeMultiAgentUI/
 │   ├── __init__.py
 │   ├── main.py                    # Main application
 │   ├── config.py                  # Configuration + ClaudeConfig
-│   ├── queue_interface.py         # CMAT v3.0 interface
+│   ├── queue_interface.py         # CMAT interface
 │   ├── settings.py                # Settings persistence
 │   ├── utils/                     # Utility modules
 │   │   ├── __init__.py
@@ -392,7 +416,7 @@ ClaudeMultiAgentUI/
 
 ## Multi-Project Workflow
 
-The UI supports managing multiple CMAT v3.0 projects:
+The UI supports managing multiple CMAT projects:
 
 1. **Connect** to Project A
 2. Work with Project A (tasks, agents, enhancements)
@@ -407,9 +431,9 @@ The last connection is saved and auto-reconnects on launch.
 ### "CMAT script not found"
 - Ensure you're selecting the project root directory
 - Path should contain: `.claude/scripts/cmat.sh`
-- This is a CMAT v3.0 project structure
+- This is a CMAT project structure
 
-### "Not a valid CMAT v3.0 project"
+### "Not a valid CMAT project"
 - Check that `.claude/scripts/cmat.sh` exists
 - Verify `.claude/AGENT_CONTRACTS.json` exists
 - Verify `.claude/skills/skills.json` exists
@@ -533,11 +557,12 @@ MIT License - see LICENSE file for details
 
 ## Related Projects
 
-- [Claude Multi-Agent Template v3.0](https://github.com/yourusername/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
+- [Claude Multi-Agent Template ](https://github.com/yourusername/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
 
 ## Changelog
 
 ### Version 1.0.3 (2025-01-XX)
+- Added Install CMAT Template dialog with GitHub download
 - Added Enhancement Generator with AI assistance
 - Added Claude Settings dialog with model selection
 - Added Skills viewer and management
@@ -547,7 +572,7 @@ MIT License - see LICENSE file for details
 - Added ClaudeGeneratorMixin for AI features
 - Added whimsical working indicators
 - Added utilities (ClaudeAPIClient, PathUtils, TimeUtils, TextUtils)
-- Updated to CMAT v3.0 compatibility
+- Updated to CMAT compatibility
 - Improved menu structure
 - Added Escape key to close dialogs
 - Improved keyboard shortcuts
