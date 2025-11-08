@@ -16,13 +16,7 @@ import queue
 from typing import Optional
 
 from .base_dialog import BaseDialog
-from ..utils import (
-    CMATInstaller,
-    CMATInstallerError,
-    SecurityError,
-    NetworkError,
-    ValidationError
-)
+from ..utils import CMATInstaller, CMATInstallerError
 
 
 class InstallCMATDialog(BaseDialog):
@@ -416,13 +410,21 @@ class InstallCMATDialog(BaseDialog):
         success_dialog.bind('<Return>', lambda e: connect_now())
 
     def handle_error(self, error: Exception):
-        """Display error message to user."""
+        """Display error message to user using polymorphic exception behavior."""
         self.current_state = self.STATE_FAILED
         self.progress_label.config(text="Installation failed", foreground="red")
         self.progress_var.set(0)
 
-        # Map exception types to user-friendly messages
-        error_title, error_msg = self._get_error_message(error)
+        # Use polymorphic get_error_message() from exception classes
+        if isinstance(error, CMATInstallerError):
+            error_title, error_msg = error.get_error_message()
+        else:
+            # Handle unexpected non-installer exceptions
+            error_title = "Installation Failed: Unexpected Error"
+            error_msg = (
+                f"An unexpected error occurred:\n\n{str(error)}\n\n"
+                "Please try again or contact support if the problem persists."
+            )
 
         messagebox.showerror(
             error_title,
@@ -431,61 +433,6 @@ class InstallCMATDialog(BaseDialog):
         )
 
         self._reset_ui()
-
-    def _get_error_message(self, error: Exception) -> tuple:
-        """
-        Map exception to user-friendly error message.
-
-        Returns:
-            (title, message) tuple
-        """
-        if isinstance(error, SecurityError):
-            return (
-                "Installation Failed: Security Check Failed",
-                f"The installation was blocked for security reasons:\n\n{str(error)}\n\n"
-                "Please choose a different directory."
-            )
-
-        elif isinstance(error, NetworkError):
-            error_str = str(error).lower()
-            if "timeout" in error_str or "timed out" in error_str:
-                return (
-                    "Installation Failed: Connection Timeout",
-                    "Could not connect to GitHub. Please check your internet "
-                    "connection and try again."
-                )
-            elif "404" in error_str or "not found" in error_str:
-                return (
-                    "Installation Failed: Template Not Found",
-                    "The CMAT template repository could not be found. This may be "
-                    "a temporary issue with GitHub. Please try again later."
-                )
-            else:
-                return (
-                    "Installation Failed: Network Error",
-                    f"A network error occurred:\n\n{str(error)}\n\n"
-                    "Please check your internet connection and try again."
-                )
-
-        elif isinstance(error, ValidationError):
-            return (
-                "Installation Failed: Invalid Template",
-                f"The downloaded template failed validation:\n\n{str(error)}\n\n"
-                "This may indicate a problem with the template repository."
-            )
-
-        elif isinstance(error, CMATInstallerError):
-            return (
-                "Installation Failed",
-                f"An error occurred during installation:\n\n{str(error)}"
-            )
-
-        else:
-            return (
-                "Installation Failed: Unexpected Error",
-                f"An unexpected error occurred:\n\n{str(error)}\n\n"
-                "Please try again or contact support if the problem persists."
-            )
 
     def _reset_ui(self):
         """Reset UI to allow retry."""

@@ -10,7 +10,7 @@ class Config:
 
     # Application info
     APP_NAME = "Claude Multi-Agent Manager"
-    VERSION = "1.0.6"
+    VERSION = "1.0.7"
 
     # Auto-refresh settings for main task view
     AUTO_REFRESH_INTERVAL = 3  # seconds
