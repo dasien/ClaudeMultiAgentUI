@@ -2,7 +2,7 @@
 
 A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
 
-![Version](https://img.shields.io/badge/version-1.0.7-blue)
+![Version](https://img.shields.io/badge/version-1.0.8-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 

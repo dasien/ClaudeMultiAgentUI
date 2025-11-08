@@ -16,7 +16,7 @@ import queue
 from typing import Optional
 
 from .base_dialog import BaseDialog
-from ..utils import CMATInstaller, CMATInstallerError
+from ..utils import CMATInstaller
 
 
 class InstallCMATDialog(BaseDialog):
@@ -410,21 +410,18 @@ class InstallCMATDialog(BaseDialog):
         success_dialog.bind('<Return>', lambda e: connect_now())
 
     def handle_error(self, error: Exception):
-        """Display error message to user using polymorphic exception behavior."""
+        """Display error message to user using exception title and message."""
         self.current_state = self.STATE_FAILED
         self.progress_label.config(text="Installation failed", foreground="red")
         self.progress_var.set(0)
 
-        # Use polymorphic get_error_message() from exception classes
-        if isinstance(error, CMATInstallerError):
-            error_title, error_msg = error.get_error_message()
-        else:
-            # Handle unexpected non-installer exceptions
-            error_title = "Installation Failed: Unexpected Error"
-            error_msg = (
-                f"An unexpected error occurred:\n\n{str(error)}\n\n"
-                "Please try again or contact support if the problem persists."
-            )
+        # Get title from error_title attribute if present, otherwise use default
+        error_title = getattr(error, 'error_title', "Installation Failed: Unexpected Error")
+
+        # Get message from exception string
+        error_msg = str(error)
+        if not error_msg:
+            error_msg = "Please try again or contact support if the problem persists."
 
         messagebox.showerror(
             error_title,

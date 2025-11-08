@@ -27,69 +27,22 @@ from urllib.error import URLError, HTTPError
 
 class CMATInstallerError(Exception):
     """Base exception for installer errors."""
-
-    def get_error_message(self) -> tuple:
-        """
-        Get user-friendly error message.
-
-        Returns:
-            Tuple of (title, message) for display in error dialogs
-        """
-        return (
-            "Installation Failed",
-            f"An error occurred during installation:\n\n{str(self)}"
-        )
+    error_title = "Installation Failed"
 
 
 class SecurityError(CMATInstallerError):
     """Security validation failed."""
-
-    def get_error_message(self) -> tuple:
-        """Get user-friendly error message for security failures."""
-        return (
-            "Installation Failed: Security Check Failed",
-            f"The installation was blocked for security reasons:\n\n{str(self)}\n\n"
-            "Please choose a different directory."
-        )
+    error_title = "Installation Failed: Security Check Failed"
 
 
 class NetworkError(CMATInstallerError):
     """Network operation failed."""
-
-    def get_error_message(self) -> tuple:
-        """Get user-friendly error message for network failures."""
-        error_str = str(self).lower()
-
-        if "timeout" in error_str or "timed out" in error_str:
-            return (
-                "Installation Failed: Connection Timeout",
-                "Could not connect to GitHub. Please check your internet "
-                "connection and try again."
-            )
-        elif "404" in error_str or "not found" in error_str:
-            return (
-                "Installation Failed: Template Not Found",
-                "The CMAT template repository could not be found. This may be "
-                "a temporary issue with GitHub. Please try again later."
-            )
-        else:
-            return (
-                "Installation Failed: Network Error",
-                f"A network error occurred:\n\n{str(self)}\n\n"
-                "Please check your internet connection and try again."
-            )
+    error_title = "Installation Failed: Network Error"
 
 
 class ValidationError(CMATInstallerError):
     """Installation validation failed."""
-
-    def get_error_message(self) -> tuple:
-        """Get user-friendly error message for validation failures."""
-        return (
-            "Installation Failed: Invalid Template",
-            f"The downloaded template failed validation:\n\n{str(self)}\n\n"
-            "This may indicate a problem with the template repository."
-        )
+    error_title = "Installation Failed: Invalid Template"
 
 
 # =============================================================================
