@@ -16,7 +16,7 @@ import queue
 from typing import Optional
 
 from .base_dialog import BaseDialog
-from ..installers import (
+from ..utils import (
     CMATInstaller,
     CMATInstallerError,
     SecurityError,

@@ -1,5 +1,5 @@
 """
-Queue interface for communicating with the cmat.sh script system.
+CMAT interface for communicating with the cmat.sh script system.
 Version 3.0 - Simplified for cmat.sh only (no backward compatibility).
 """
 
@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 import re
 
-from .models import Task, AgentStatus, QueueState
+from ..models import Task, AgentStatus, QueueState
 
 
-class QueueInterface:
+class CMATInterface:
     """Interface to the cmat.sh command system (v3.0+)."""
 
     def __init__(self, cmat_script_path: str):

@@ -8,7 +8,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
 
-from .queue_interface import QueueInterface
+from .utils import CMATInterface
 from .models import ConnectionState, QueueUIState
 from .config import Config
 from .settings import Settings
@@ -362,7 +362,7 @@ class TaskQueueUI:
         """Connect to a project."""
         try:
             # Initialize queue interface
-            self.queue = QueueInterface(str(cmat_path))
+            self.queue = CMATInterface(str(cmat_path))
 
             # Update state
             self.state.connection_state = ConnectionState.CONNECTED

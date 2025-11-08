@@ -2,7 +2,7 @@
 
 A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
 
-![Version](https://img.shields.io/badge/version-1.0.3-blue)
+![Version](https://img.shields.io/badge/version-1.0.6-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -379,11 +379,12 @@ ClaudeMultiAgentUI/
 │   ├── __init__.py
 │   ├── main.py                    # Main application
 │   ├── config.py                  # Configuration + ClaudeConfig
-│   ├── queue_interface.py         # CMAT interface
 │   ├── settings.py                # Settings persistence
 │   ├── utils/                     # Utility modules
 │   │   ├── __init__.py
 │   │   ├── claude_api_client.py   # Centralized API client
+│   │   ├── cmat_interface.py      # CMAT interface
+│   │   ├── cmat_installer.py      # CMAT template installer
 │   │   ├── text_utils.py          # Slug conversion, validation
 │   │   ├── path_utils.py          # Path utilities
 │   │   └── time_utils.py          # Time formatting

@@ -10,9 +10,9 @@ class Config:
 
     # Application info
     APP_NAME = "Claude Multi-Agent Manager"
-    VERSION = "1.0.4"
+    VERSION = "1.0.6"
 
-    # Auto-refresh settings
+    # Auto-refresh settings for main task view
     AUTO_REFRESH_INTERVAL = 3  # seconds
     AUTO_REFRESH_ENABLED_DEFAULT = True
 
@@ -56,6 +56,11 @@ class ClaudeConfig:
     Single source of truth for Claude models and defaults.
     """
 
+    # Default Claude settings
+    DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+    DEFAULT_MAX_TOKENS = 8192
+    DEFAULT_TIMEOUT = 300  # seconds - generous for long generations
+
     # Available Claude models with their specifications
     MODELS = {
         "claude-opus-4-20250514": {
@@ -79,11 +84,6 @@ class ClaudeConfig:
             "description": "Fastest and most cost-effective, 8K output"
         },
     }
-
-    # Default settings
-    DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
-    DEFAULT_MAX_TOKENS = 8192
-    DEFAULT_TIMEOUT = 300  # seconds - generous for long generations
 
     @classmethod
     def get_display_name(cls, model_id: str) -> str:
