@@ -4,7 +4,7 @@ Workflow State Viewer - Visualize active workflows and their progress.
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, List, Optional
+from typing import Dict, List
 from collections import defaultdict
 
 from .base_dialog import BaseDialog

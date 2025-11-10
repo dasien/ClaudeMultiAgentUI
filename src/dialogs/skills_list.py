@@ -4,7 +4,7 @@ Skills Viewer Dialog - Browse and preview all available skills.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import Optional, List, Dict
+from typing import List, Dict
 
 from .base_dialog import BaseDialog
 

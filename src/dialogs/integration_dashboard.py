@@ -4,7 +4,7 @@ Integration Dashboard - View and manage GitHub/Jira/Confluence sync status.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from typing import List, Dict, Optional
+from typing import Optional
 
 from .base_dialog import BaseDialog
 

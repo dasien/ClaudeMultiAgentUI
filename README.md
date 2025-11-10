@@ -1,32 +1,32 @@
 # Multi-Agent Task Queue Manager
 
-A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
-
 ![Version](https://img.shields.io/badge/version-1.0.8-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
+
+I created this tool as a way to make the creation and management of CMAT based projects easier.  Rather than using the 
+cmat.sh script directly, I wanted to have a GUI that would allow users to create tasks, manage agents (and their skills), and create enhancements for a user's project.
+
+Once installed and connected to a CMAT project, the first thing a user might do is create an 'enhancement.'  This is a well-structured specification file that includes the user story, requirements, constraints, and acceptance criteria.  The user can then use this file to create a task in the queue.
+With the task created, the user can start the task and a series of agents will work on the task.  The user can monitor the progress of the task in the task viewer (the main screen).
+As each agent completes its work, it will output a log file and documentation according to agent's role and workflow.
+
 
 ## Features
 
 ### Core Features
 - 📋 **Task Management** - Create, start, cancel, and monitor tasks
-- 🤖 **AI-Powered Generation** - Generate task descriptions and enhancement specs using Claude API
-- ⚡ **Quick Actions** - Create & Start button for immediate task execution
-- 🔧 **Auto Complete & Chain** - Automated task completion and chaining workflows
-- 🔄 **Auto-Refresh** - Real-time updates of task status
-- 🎯 **Multi-Project Support** - Connect to different CMAT projects
-- 📊 **Operations Log Viewer** - Track all queue operations
-- 🎨 **Clean UI** - Simple, intuitive Tkinter interface
-- 🚀 **Zero External Dependencies** - Uses only Python standard library
-
-###  Enhanced Features
+- 🎭 **Agent Management** - Create, edit, and delete agents with visual skills assignment
 - 🎯 **Skills Management** - Browse skills, view agent skills, preview skills prompts
 - 📝 **Enhancement Generator** - AI-assisted creation of enhancement specification files
+- 🤖 **AI-Powered Generation** - Generate task descriptions and enhancement specs using Claude API
 - 🔄 **Workflow Visualization** - View active workflows and their progress
 - 🔗 **Integration Dashboard** - Monitor GitHub/Jira/Confluence sync status
 - ⚙️ **Advanced Settings** - Configure Claude model, API key, and token limits
-- 🎭 **Agent Management** - Create, edit, and delete agents with visual skills assignment
-- ✨ **Whimsical Working Indicators** - Fun "Claudeifying..." animations during API calls
+- 🎯 **Multi-Project Support** - Connect to different CMAT projects
+- 🚀 **Zero External Dependencies** - Uses only Python standard library
 
 ## Screenshots
 
@@ -49,7 +49,7 @@ Double-click any task to view complete details including description, timestamps
 
 - Python 3.7 or higher
 - Tkinter (included with Python)
-- A project using the Claude Multi-Agent Development Template  (or install one via the UI)
+- A project using the Claude Multi-Agent Development Template  (can be installed directly or connected to an existing project)
 - Claude API key (optional, for AI-powered features)
 
 ## Installation
@@ -80,24 +80,24 @@ python3 -m src.main
 
 ### 2. Get a CMAT Project
 
-You can either connect to an existing CMAT project or install a new one.
+You can either connect to an existing CMAT project or install to your project.
 
 #### Option A: Install CMAT Template (NEW!)
 
 If you don't have a CMAT project yet, you can install one directly:
-
-1. Click **File > Install CMAT Template...**
-2. Select or enter the directory where you want to install CMAT
-3. The dialog validates the directory and warns if `.claude/` already exists
-4. Click **Install** to download and install CMAT from GitHub
-5. Watch the progress bar as files are downloaded and installed
-6. When complete, click **Connect Now** to immediately connect to the new project
 
 The installer:
 - Downloads the latest CMAT template from GitHub
 - Creates a `.claude/` folder with all necessary files
 - Creates a backup if overwriting an existing installation
 - Validates the installation for security and completeness
+
+1. Click **File > Install CMAT Template...**
+2. Select or enter the directory where you want to install CMAT
+3. The dialog validates the directory and warns if `.claude/` already exists
+4. Click **Install** to download and install CMAT from GitHub
+5. Files are downloaded from the CMAT GitHub repo and installed
+6. When complete, click **Connect Now** to immediately connect to the new project
 
 #### Option B: Connect to Existing Project
 
@@ -123,219 +123,12 @@ For AI-powered features (enhancement generation, task descriptions, agent role d
 
 1. Click **Settings > Claude Settings**
 2. Enter your Claude API key (get one at console.anthropic.com)
-3. Choose your preferred model:
-   - **Claude Opus 4** - Most capable, 16K output (best for long enhancements)
-   - **Claude Sonnet 4.5** - Smartest, efficient, 8K output (recommended default)
-   - **Claude Sonnet 4** - Balanced performance, 8K output
-   - **Claude Haiku 4** - Fastest and most cost-effective, 8K output
+3. Choose your preferred model
 4. Set max tokens (defaults to model maximum)
 5. Click **Save Settings**
 
-### 4. Managing Tasks
+See the [User Guide](USER_GUIDE.md) for more detailed instructions on system operation.
 
-#### Create a Task
-- **Method 1**: Right-click in empty space → **Create Task...**
-- **Method 2**: Press `Ctrl+N`
-- **Method 3**: Menu: **Tasks > Create Task...**
-
-**Fill in the form:**
-- **Title**: Short description of the task
-- **Quick Start Workflow** (optional): Select a pre-configured workflow
-  - 📋 Full Feature
-  - 🐛 Bug Fix
-  - 🔥 Hotfix
-  - 🔧 Refactoring
-- **Agent**: Select from available agents (shows agent's skills)
-- **Priority**: Critical, High, Normal, or Low
-- **Task Type**: Analysis, Technical Analysis, Implementation, Testing, Documentation, or Integration
-- **Source File**: Browse to select (usually a markdown enhancement file)
-- **Description**: Task details
-  - Click **Generate with Claude** for AI-assisted creation
-  - Includes agent skills and source file content in context
-- **Automation Options**:
-  - **Auto Complete**: Complete without prompting
-  - **Auto Chain**: Automatically progress to next agent
-
-**Choose an action:**
-- **Create Task**: Add to queue as pending
-- **Create & Start**: Add and immediately execute
-- **Cancel** or **Escape**: Discard
-
-#### Start a Task
-- Right-click on a pending task → **Start Task**
-- Or: Select a task and press `Enter`
-- The agent executes in background
-- Task status updates automatically
-
-#### Cancel a Task
-- Right-click on a pending/active task → **Cancel Task**
-- Or: Select a task and press `Delete`
-- Confirm the cancellation
-
-#### View Task Details
-- Double-click any task
-- Or: Right-click → **View Details...**
-- Shows:
-  - Complete task information
-  - Skills available vs. skills applied
-  - Contract validation status
-  - Expected outputs
-  - External integration (GitHub/Jira)
-  - Access to task logs
-
-#### Cancel All Tasks
-- Right-click in empty space → **Cancel All Tasks**
-- Confirms before cancelling all pending and active tasks
-
-### 5. Enhancement Generator (NEW!)
-
-Create well-structured enhancement specification files with Claude's help:
-
-1. Click **Enhancements > Generate...** or press `Ctrl+E`
-2. Fill in the form:
-   - **Enhancement Title**: What you're building
-   - **Filename**: Auto-generated from title (lowercase-with-hyphens)
-   - **Output Directory**: Where to save (defaults to `enhancements/`)
-   - **Reference Files** (optional): Add related docs for context
-   - **Description**: Describe what you want (3-4 sentences)
-3. Click **Generate with Claude**
-4. Watch the whimsical working indicator ("Bedazzling...", "Cogitating...")
-5. Preview the generated enhancement specification
-6. Edit if needed, then click **💾 Save**
-
-The generated file includes:
-- Overview and user stories
-- Requirements (functional, non-functional, MVP)
-- Constraints and limitations
-- Success criteria and acceptance tests
-- Testing strategy
-- Implementation guidance for agents
-
-### 6. Agent Management
-
-**View and Manage Agents:**
-- Click **Agents > Manage Agents...**
-- See all agents with skill counts
-- Double-click to edit
-
-**Create New Agent:**
-- Click **Create New Agent**
-- Fill in:
-  - Agent Name (auto-generates filename slug)
-  - Description
-  - Role Definition (use **Generate with Claude**)
-- Assign workflow role, tools, and skills
-- Set outputs and status codes
-- Save to create agent files and update contracts
-
-**Edit Agent:**
-- Select agent → **Edit Selected**
-- Modify configuration
-- Save changes
-
-**Delete Agent:**
-- Select agent → **Delete Selected**
-- Confirms before removing from all files
-
-### 7. Skills System
-
-**Browse All Skills:**
-- Click **Skills > Browse Skills...** or press `Ctrl+K`
-- Filter by category
-- View skill content and descriptions
-- See which agents use each skill
-
-**View Agent Skills:**
-- Click **Skills > View Agent Skills...**
-- See summary of all agents and their assigned skills
-
-### 8. Workflows
-
-**Visualize Active Workflows:**
-- Click **Workflows > View Active Workflows...** or press `Ctrl+W`
-- See progress for each enhancement
-- View which agents are complete/active/pending
-- Track workflow status
-
-Standard workflow: Requirements Analyst → Architect → Implementer → Tester → Documenter
-
-### 9. Integration Dashboard
-
-**Monitor External System Sync:**
-- Click **Integration > Integration Dashboard...** or press `Ctrl+I`
-- View GitHub issues, Jira tickets, Confluence pages
-- See sync status for each task
-- Sync tasks to external systems
-
-### 10. Logs
-
-**Operations Log:**
-- Click **Logs > View Operations Log** or press `Ctrl+L`
-- View all queue operations
-- Search through logs
-- Useful for debugging
-
-**Task Logs:**
-- Right-click task → **View Task Log...**
-- Or: Task Details → **View Log** button
-- Search within log
-- See detailed agent execution
-
-## Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+O` | Connect to project |
-| `Ctrl+N` | Create new task |
-| `Ctrl+E` | Generate new enhancement |
-| `Ctrl+K` | Browse skills |
-| `Ctrl+W` | View active workflows |
-| `Ctrl+I` | Integration dashboard |
-| `Ctrl+L` | View operations log |
-| `F5` | Refresh task list |
-| `Ctrl+Q` | Quit application |
-| `Delete` | Cancel selected task |
-| `Enter` | Start selected task (if pending) |
-| `Escape` | Close active dialog |
-
-## Menu Structure
-
-- **File**
-  - Install CMAT Template... ⭐ NEW
-  - Connect... (`Ctrl+O`)
-  - Quit (`Ctrl+Q`)
-
-- **Tasks**
-  - Create Task... (`Ctrl+N`)
-  - Cancel All Tasks
-  - Refresh List (`F5`)
-
-- **Agents**
-  - Manage Agents...
-
-- **Skills**
-  - Browse Skills... (`Ctrl+K`)
-  - View Agent Skills...
-
-- **Enhancements** ⭐ NEW
-  - Generate... (`Ctrl+E`)
-
-- **Workflows**
-  - View Active Workflows... (`Ctrl+W`)
-
-- **Integration**
-  - Integration Dashboard... (`Ctrl+I`)
-  - Sync All Unsynced Tasks
-
-- **Logs**
-  - View Operations Log (`Ctrl+L`)
-
-- **Settings**
-  - Claude Settings
-  - Auto Refresh Task List
-
-- **About**
-  - About Task Queue UI
 
 ## Configuration
 
@@ -359,19 +152,7 @@ Configure via **Settings > Claude Settings**:
 
 Settings are persisted to `~/.claude_queue_ui/settings.json`
 
-## Architecture
-
-### Modern Object-Oriented Design
-
-The application uses a clean, Pythonic architecture:
-
-- **Abstract Base Classes** - All dialogs inherit from `BaseDialog` (ABC)
-- **Mixins** - `ClaudeGeneratorMixin` for AI-powered dialogs
-- **Utilities** - Shared functions for common operations
-- **Single Source of Truth** - Centralized configuration
-- **Type Safety** - Abstract methods enforce contracts
-
-### Project Structure
+## Project Structure
 
 ```
 ClaudeMultiAgentUI/
@@ -464,33 +245,6 @@ The last connection is saved and auto-reconnects on launch.
 - Sonnet 4.5 is faster for most tasks
 - Watch the working animation - it's still processing!
 
-### Cross-Platform Issues
-
-**macOS**: 
-- Right-click may require `Ctrl+Click` or two-finger tap
-- File dialogs use native macOS interface
-
-**Windows**: 
-- Ensure Git Bash or WSL is installed for bash script execution
-- File paths may need forward slashes
-
-**Linux**: 
-- Should work out of the box
-- If Tkinter not found: `sudo apt-get install python3-tk`
-
-## Advanced Features
-
-### Quick Start Workflows
-
-Use pre-configured workflows when creating tasks:
-
-- **📋 Full Feature** - Complete development workflow (all agents)
-- **🐛 Bug Fix** - Skip documentation phase
-- **🔥 Hotfix** - Emergency fix, skip analysis
-- **🔧 Refactoring** - Code improvement, skip requirements
-
-These automatically set agent, priority, and enable auto-chain.
-
 ### Agent Personas
 
 When creating agents, use quick select personas:
@@ -540,52 +294,13 @@ Contributions are welcome! Please:
 4. Add tests if applicable
 5. Submit a pull request
 
-### Development
-
-The codebase follows modern Python best practices:
-
-- **Abstract Base Classes** for type safety
-- **Mixins** for cross-cutting concerns
-- **Utilities** for shared functionality
-- **Single Responsibility Principle**
-- **DRY (Don't Repeat Yourself)**
-
-See `src/dialogs/base_dialog.py` for the dialog architecture pattern.
-
 ## License
 
 MIT License - see LICENSE file for details
 
 ## Related Projects
 
-- [Claude Multi-Agent Template ](https://github.com/yourusername/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
-
-## Changelog
-
-### Version 1.0.3 (2025-01-XX)
-- Added Install CMAT Template dialog with GitHub download
-- Added Enhancement Generator with AI assistance
-- Added Claude Settings dialog with model selection
-- Added Skills viewer and management
-- Added Workflow state visualization
-- Added Integration dashboard
-- Refactored all dialogs to use BaseDialog ABC
-- Added ClaudeGeneratorMixin for AI features
-- Added whimsical working indicators
-- Added utilities (ClaudeAPIClient, PathUtils, TimeUtils, TextUtils)
-- Updated to CMAT compatibility
-- Improved menu structure
-- Added Escape key to close dialogs
-- Improved keyboard shortcuts
-
-### Version 1.0.0 (2025-01-XX)
-- Initial release
-- Task management (create, start, cancel)
-- Multi-project support via connection dialog
-- Operations log viewer
-- Task details viewer
-- Auto-refresh functionality
-- Context menus and keyboard shortcuts
+- [Claude Multi-Agent Template ](https://github.com/dasien/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
 
 ---
 

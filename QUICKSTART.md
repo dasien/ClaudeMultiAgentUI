@@ -36,7 +36,7 @@ python3 run.py
 
 The application window opens.
 
-## Step 3: Get a CMAT Project
+## Step 3: Connect to a CMAT Project
 
 You can either install a new CMAT project or connect to an existing one.
 
@@ -95,7 +95,7 @@ You can now use:
 
 ## Step 5: Try Core Features!
 
-### Create an Enhancement (NEW in v1.0.3!)
+### Create an Enhancement 
 
 1. Press `Ctrl+E` or click **Enhancements > Generate...**
 2. Fill in:
