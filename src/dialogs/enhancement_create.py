@@ -395,11 +395,6 @@ Generate detailed, comprehensive content for each section. Be specific and actio
                 with open(output_file, 'w', encoding='utf-8') as f:
                     f.write(final_content)
 
-                messagebox.showinfo(
-                    "Success",
-                    f"Enhancement saved successfully!\n\n{output_file}"
-                )
-
                 # Use BaseDialog.close() with result
                 self.close(result=str(output_file))
                 preview.destroy()

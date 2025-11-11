@@ -317,10 +317,8 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         self.auto_complete_var.set(True)
         self.auto_chain_var.set(True)
 
-        # Set description
+        # Clear description.
         self.description_text.delete('1.0', tk.END)
-        self.description_text.insert('1.0',
-                                     f"Quick workflow: {description}\n\nThis workflow will automatically progress through all phases.")
 
         # Focus on title
         self.set_focus(self.title_entry)

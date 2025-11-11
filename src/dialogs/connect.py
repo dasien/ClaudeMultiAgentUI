@@ -1,6 +1,6 @@
 """
-Connect dialog for selecting a v3.0 CMAT project.
-Validates v3.0 structure including cmat.sh, skills, and contracts.
+Connect dialog for selecting a CMAT project.
+Validates CMAT structure using the same validation as the installer.
 """
 
 import tkinter as tk
@@ -8,10 +8,11 @@ from tkinter import ttk, filedialog
 from pathlib import Path
 
 from .base_dialog import BaseDialog
+from ..utils import CMATInstaller
 
 
 class ConnectDialog(BaseDialog):
-    """Dialog for connecting to a v3.0 CMAT project."""
+    """Dialog for connecting to a CMAT project."""
 
     def __init__(self, parent):
         super().__init__(parent, "Connect to Project", 700, 550)
@@ -54,7 +55,7 @@ class ConnectDialog(BaseDialog):
                                      foreground='gray'),
             'queue_file': ttk.Label(self.validation_frame, text="○ Task queue (.claude/queues/task_queue.json)",
                                     foreground='gray'),
-            'contracts': ttk.Label(self.validation_frame, text="○ Agent contracts (.claude/AGENT_CONTRACTS.json)",
+            'contracts': ttk.Label(self.validation_frame, text="○ Agent contracts (.claude/agents/agent_contracts.json)",
                                    foreground='gray'),
             'skills': ttk.Label(self.validation_frame, text="○ Skills system (.claude/skills/skills.json)",
                                 foreground='gray'),
@@ -102,7 +103,7 @@ class ConnectDialog(BaseDialog):
             self.path_var.set(directory)
 
     def validate_path(self):
-        """Validate selected path for v3.0 compatibility."""
+        """Validate selected path using installer validation logic."""
         path_str = self.path_var.get()
 
         if not path_str:
@@ -111,12 +112,12 @@ class ConnectDialog(BaseDialog):
 
         project_root = Path(path_str)
 
-        # Validation checks
+        # Validation checks (for UI display only - actual validation uses manifest)
         checks = {
             'project_root': project_root.exists() and project_root.is_dir(),
             'cmat_script': (project_root / ".claude/scripts/cmat.sh").exists(),
             'queue_file': (project_root / ".claude/queues/task_queue.json").exists(),
-            'contracts': (project_root / ".claude/AGENT_CONTRACTS.json").exists(),
+            'contracts': (project_root / ".claude/agents/agent_contracts.json").exists(),
             'skills': (project_root / ".claude/skills/skills.json").exists(),
             'agents': (project_root / ".claude/agents/agents.json").exists(),
         }
@@ -129,22 +130,29 @@ class ConnectDialog(BaseDialog):
             else:
                 label.config(text=f"✗ {label.cget('text')[2:]}", foreground='red')
 
-        # Determine if this is a valid v3.0 project
-        required_v3 = ['project_root', 'cmat_script', 'contracts', 'skills']
-        is_v3_valid = all(checks[k] for k in required_v3)
+        # Use installer validation logic to check if this is a valid CMAT installation
+        claude_dir = project_root / ".claude"
+        is_valid_cmat = False
+
+        if claude_dir.exists() and claude_dir.is_dir():
+            try:
+                installer = CMATInstaller(project_root)
+                is_valid_cmat = installer._validate_structure(claude_dir)
+            except Exception:
+                is_valid_cmat = False
 
         # Optional but recommended
         optional = ['queue_file', 'agents']
         has_optional = all(checks[k] for k in optional)
 
         # Update version label
-        if is_v3_valid:
+        if is_valid_cmat:
             if has_optional:
-                self.version_label.config(text="✓ Valid CMAT v3.0 Project", foreground='green')
+                self.version_label.config(text="✓ Valid CMAT Project", foreground='green')
                 self.connect_btn.config(state=tk.NORMAL)
             else:
                 self.version_label.config(
-                    text="⚠ Valid v3.0 structure (queue/agents will be created)",
+                    text="⚠ Valid CMAT structure (queue/agents will be created)",
                     foreground='orange'
                 )
                 self.connect_btn.config(state=tk.NORMAL)
@@ -152,12 +160,12 @@ class ConnectDialog(BaseDialog):
             # Check if it's an older version
             if (project_root / ".claude/queues/queue_manager.sh").exists():
                 self.version_label.config(
-                    text="✗ This appears to be v2.0 or earlier - please upgrade template first",
+                    text="✗ This appears to be an older version - please reinstall template",
                     foreground='red'
                 )
             else:
                 self.version_label.config(
-                    text="✗ Not a valid CMAT v3.0 project",
+                    text="✗ Not a valid CMAT project",
                     foreground='red'
                 )
             self.connect_btn.config(state=tk.DISABLED)

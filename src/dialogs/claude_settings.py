@@ -331,11 +331,6 @@ class ClaudeSettingsDialog(BaseDialog):
             max_tokens = int(self.max_tokens_var.get())
             self.settings.set_claude_max_tokens(max_tokens)
 
-            messagebox.showinfo(
-                "Settings Saved",
-                "Claude API settings saved successfully!"
-            )
-
             # Use BaseDialog.close() with result
             self.close(result=True)
 

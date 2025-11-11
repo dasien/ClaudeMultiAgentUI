@@ -757,15 +757,6 @@ skills: {json.dumps(skills)}
             with open(md_file, 'w') as f:
                 f.write(md_content)
 
-            messagebox.showinfo(
-                "Success",
-                f"Agent '{name}' saved successfully!\n\n"
-                f"✓ agents.json updated\n"
-                f"✓ {file_slug}.md created\n"
-                f"✓ AGENT_CONTRACTS.json updated\n"
-                f"✓ {len(skills)} skill(s) assigned"
-            )
-
             # Use BaseDialog.close() with result
             self.close(result=file_slug)
 

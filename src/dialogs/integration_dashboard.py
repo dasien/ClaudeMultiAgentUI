@@ -228,7 +228,6 @@ class IntegrationDashboardDialog(BaseDialog):
         """Sync specific task to external systems."""
         try:
             self.queue.sync_task_external(task_id)
-            messagebox.showinfo("Success", f"Integration task created for {task_id}")
             self.load_integration_status()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to sync: {e}")
@@ -241,7 +240,6 @@ class IntegrationDashboardDialog(BaseDialog):
         ):
             try:
                 self.queue.sync_all_external()
-                messagebox.showinfo("Success", "Integration tasks created")
                 self.load_integration_status()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to sync: {e}")

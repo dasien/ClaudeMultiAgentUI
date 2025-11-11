@@ -57,9 +57,9 @@ DEFAULT_GITHUB_BRANCH = "main"
 
 # Fallback files for CMAT validation (used only if manifest.json is missing)
 FALLBACK_REQUIRED_FILES = [
-    ".claude/scripts/cmat.sh",
-    ".claude/agents/agent_contracts.json",
-    ".claude/skills/skills.json",
+    "scripts/cmat.sh",
+    "agents/agent_contracts.json",
+    "skills/skills.json",
 ]
 
 # Manifest file location

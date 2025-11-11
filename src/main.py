@@ -223,7 +223,7 @@ class TaskQueueUI:
         tree_frame.pack(fill="both", expand=True)
 
         # Columns without external_links
-        columns = ('task_id', 'title', 'agent', 'status', 'start_date', 'end_date', 'runtime')
+        columns = ('task_id', 'title', 'enhancement', 'agent', 'status', 'start_date', 'end_date', 'runtime', 'cost')
         self.task_tree = ttk.Treeview(
             tree_frame,
             columns=columns,
@@ -233,19 +233,23 @@ class TaskQueueUI:
 
         self.task_tree.heading('task_id', text='Task ID', command=lambda: self.sort_by('task_id'))
         self.task_tree.heading('title', text='Title', command=lambda: self.sort_by('title'))
+        self.task_tree.heading('enhancement', text='Enhancement', command=lambda: self.sort_by('enhancement'))
         self.task_tree.heading('agent', text='Agent', command=lambda: self.sort_by('agent'))
         self.task_tree.heading('status', text='Status', command=lambda: self.sort_by('status'))
         self.task_tree.heading('start_date', text='Start Date', command=lambda: self.sort_by('start_date'))
         self.task_tree.heading('end_date', text='End Date', command=lambda: self.sort_by('end_date'))
         self.task_tree.heading('runtime', text='Runtime', command=lambda: self.sort_by('runtime'))
+        self.task_tree.heading('cost', text='Cost', command=lambda: self.sort_by('cost'))
 
         self.task_tree.column('task_id', width=160, minwidth=120)
         self.task_tree.column('title', width=300, minwidth=200)
+        self.task_tree.column('enhancement', width=200, minwidth=150)
         self.task_tree.column('agent', width=150, minwidth=120)
         self.task_tree.column('status', width=90, minwidth=80)
         self.task_tree.column('start_date', width=140, minwidth=120)
         self.task_tree.column('end_date', width=140, minwidth=120)
         self.task_tree.column('runtime', width=80, minwidth=70)
+        self.task_tree.column('cost', width=80, minwidth=70)
 
         # Scrollbars
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.task_tree.yview)
@@ -390,6 +394,15 @@ class TaskQueueUI:
             return
 
         try:
+            # Preserve selection before clearing
+            selected_task_ids = []
+            selection = self.task_tree.selection()
+            if selection:
+                for item_id in selection:
+                    values = self.task_tree.item(item_id, 'values')
+                    if values:
+                        selected_task_ids.append(values[0])
+
             queue_state = self.queue.get_queue_state()
 
             # Clear
@@ -404,25 +417,43 @@ class TaskQueueUI:
                     queue_state.failed_tasks
             )
 
-            # Populate
+            # Populate and track items for re-selection
+            task_id_to_item = {}
             for task in all_tasks:
                 status_display = task.status.capitalize()
                 runtime_display = self.format_runtime(task.runtime_seconds)
 
-                self.task_tree.insert(
+                # Extract enhancement title from metadata
+                enhancement_title = ''
+                if task.metadata and isinstance(task.metadata, dict):
+                    enhancement_title = task.metadata.get('enhancement_title', '')
+
+                # Extract cost from metadata
+                cost_display = self.format_cost(task)
+
+                item_id = self.task_tree.insert(
                     '',
                     tk.END,
                     values=(
                         task.id,
                         task.title,
+                        enhancement_title,
                         task.assigned_agent,
                         status_display,
                         task.started or '',
                         task.completed or '',
-                        runtime_display
+                        runtime_display,
+                        cost_display
                     ),
                     tags=(task.status.lower(),)
                 )
+                task_id_to_item[task.id] = item_id
+
+            # Restore selection
+            if selected_task_ids:
+                for task_id in selected_task_ids:
+                    if task_id in task_id_to_item:
+                        self.task_tree.selection_add(task_id_to_item[task_id])
 
             # Update status
             self.status_label.config(
@@ -438,6 +469,30 @@ class TaskQueueUI:
     def format_runtime(self, seconds):
         """Format runtime using TimeUtils."""
         return TimeUtils.format_runtime(seconds)
+
+    def format_cost(self, task):
+        """Format cost from task metadata."""
+        if not task.metadata or not isinstance(task.metadata, dict):
+            return "-"
+
+        # Check for nested cost structure (future format)
+        cost_data = task.metadata.get('cost')
+        if cost_data and isinstance(cost_data, dict):
+            total_cost = cost_data.get('total_cost')
+            if total_cost is not None:
+                return f"${total_cost:.4f}"
+
+        # Check for flat cost structure (current CMAT format)
+        cost_usd = task.metadata.get('cost_usd')
+        if cost_usd is not None:
+            # Handle both string and numeric values
+            try:
+                cost_value = float(cost_usd)
+                return f"${cost_value:.4f}"
+            except (ValueError, TypeError):
+                return "-"
+
+        return "-"
 
     def toggle_auto_refresh(self):
         """Toggle auto-refresh."""
@@ -610,7 +665,6 @@ class TaskQueueUI:
         if response:
             try:
                 self.queue.clear_finished_tasks()
-                messagebox.showinfo("Success", "All completed and failed tasks have been cleared.")
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to clear finished tasks: {e}")
@@ -631,7 +685,6 @@ class TaskQueueUI:
         if response:
             try:
                 self.queue.reset_queue()
-                messagebox.showinfo("Success", "Queue has been reset to empty state.")
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to reset queue: {e}")
@@ -640,7 +693,6 @@ class TaskQueueUI:
         """Sync task to external systems."""
         try:
             self.queue.sync_task_external(task_id)
-            messagebox.showinfo("Success", "Integration task created")
             self.refresh()
         except Exception as e:
             messagebox.showerror("Error", f"Failed to sync: {e}")
@@ -650,7 +702,6 @@ class TaskQueueUI:
         if messagebox.askyesno("Confirm", "Sync all unsynced tasks?"):
             try:
                 self.queue.sync_all_external()
-                messagebox.showinfo("Success", "Integration tasks created")
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed: {e}")
@@ -675,7 +726,6 @@ class TaskQueueUI:
         if task:
             self.root.clipboard_clear()
             self.root.clipboard_append(task.id)
-            messagebox.showinfo("Copied", f"Task ID copied: {task.id}")
 
     def show_skills_viewer(self):
         """Show skills viewer dialog."""
@@ -746,13 +796,6 @@ class TaskQueueUI:
 
         from .dialogs import CreateEnhancementDialog
         dialog = CreateEnhancementDialog(self.root, self.queue, self.settings)
-
-        if dialog.result:
-            messagebox.showinfo(
-                "Enhancement Created",
-                f"Enhancement file created:\n\n{dialog.result}\n\n"
-                "You can now create a task for this enhancement!"
-            )
 
     def show_integration_dashboard(self):
         """Show integration dashboard."""

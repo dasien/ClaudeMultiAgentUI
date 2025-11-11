@@ -32,8 +32,8 @@ class CMATInterface:
         self.logs_dir = self.project_root / ".claude/logs"
         self.agents_file = self.project_root / ".claude/agents/agents.json"
         self.tools_file = self.project_root / ".claude/tools/tools.json"
-        self.contracts_file = self.project_root / ".claude/AGENT_CONTRACTS.json"
-        self.states_file = self.project_root / ".claude/WORKFLOW_STATES.json"
+        self.contracts_file = self.project_root / ".claude/agents/agent_contracts.json"
+        self.states_file = self.project_root / ".claude/queues/workflow_states.json"
         self.skills_file = self.project_root / ".claude/skills/skills.json"
 
         # Validate essential paths
@@ -502,9 +502,30 @@ class CMATInterface:
         return ''.join(lines[-max_lines:])
 
     def extract_skills_used(self, log_content: str) -> List[str]:
-        """Extract skills that were applied from task log."""
+        """Extract skills that were applied from task log.
+
+        Supports two formats:
+        1. New format: SKILLS_USED: skill1, skill2, skill3
+        2. Old format: ## Skills Applied with checkbox list
+        """
         skills_used = []
 
+        # Find the agent's output (after END OF PROMPT marker)
+        agent_output = log_content
+        if "END OF PROMPT" in log_content:
+            # Only search in the agent's output, not the prompt
+            agent_output = log_content.split("END OF PROMPT", 1)[1]
+
+        # Try new format first: SKILLS_USED: skill1, skill2, skill3
+        if "SKILLS_USED:" in agent_output:
+            match = re.search(r'SKILLS_USED:\s*([^\n]+)', agent_output)
+            if match:
+                skills_line = match.group(1).strip()
+                # Split by comma and clean up each skill name
+                skills_used = [skill.strip() for skill in skills_line.split(',') if skill.strip()]
+                return skills_used
+
+        # Fall back to old format: ## Skills Applied
         if "Skills Applied" not in log_content:
             return skills_used
 

@@ -195,7 +195,6 @@ class AgentListDialog(BaseDialog):
             if md_file.exists():
                 md_file.unlink()
 
-            messagebox.showinfo("Success", f"Agent '{agent_name}' deleted.")
             self.load_agents()
 
         except Exception as e:
