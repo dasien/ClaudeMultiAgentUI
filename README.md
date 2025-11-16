@@ -1,6 +1,6 @@
 # Multi-Agent Task Queue Manager
 
-![Version](https://img.shields.io/badge/version-1.0.8-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -23,6 +23,7 @@ As each agent completes its work, it will output a log file and documentation ac
 - 📝 **Enhancement Generator** - AI-assisted creation of enhancement specification files
 - 🤖 **AI-Powered Generation** - Generate task descriptions and enhancement specs using Claude API
 - 🔄 **Workflow Visualization** - View active workflows and their progress
+- 📋 **Workflow Template Management** - Create and manage reusable workflow templates
 - 🔗 **Integration Dashboard** - Monitor GitHub/Jira/Confluence sync status
 - ⚙️ **Advanced Settings** - Configure Claude model, API key, and token limits
 - 🎯 **Multi-Project Support** - Connect to different CMAT projects

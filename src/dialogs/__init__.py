@@ -17,6 +17,8 @@ from .integration_dashboard import IntegrationDashboardDialog
 from .enhancement_create import CreateEnhancementDialog
 from .working import WorkingDialog
 from .claude_settings import ClaudeSettingsDialog
+from .workflow_template_manager import WorkflowTemplateManagerDialog
+from .workflow_template_editor import WorkflowTemplateEditorDialog
 
 __all__ = [
     'ConnectDialog',
@@ -32,4 +34,6 @@ __all__ = [
     'CreateEnhancementDialog',
     'WorkingDialog',
     'ClaudeSettingsDialog',
+    'WorkflowTemplateManagerDialog', 
+    'WorkflowTemplateEditorDialog',
 ]

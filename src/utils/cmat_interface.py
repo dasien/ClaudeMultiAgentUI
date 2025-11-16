@@ -35,6 +35,7 @@ class CMATInterface:
         self.contracts_file = self.project_root / ".claude/agents/agent_contracts.json"
         self.states_file = self.project_root / ".claude/queues/workflow_states.json"
         self.skills_file = self.project_root / ".claude/skills/skills.json"
+        self.templates_file = self.project_root / ".claude/queues/workflow_templates.json"
 
         # Validate essential paths
         if not self.queue_file.exists():
@@ -251,6 +252,47 @@ class CMATInterface:
     def auto_chain_workflow(self, task_id: str, status: str):
         """Automatically chain to next agent with validation."""
         self._run_command("workflow", "auto-chain", task_id, status)
+
+    def get_workflow_templates(self) -> List:
+        """Get all workflow templates using WorkflowTemplate model."""
+        from ..models import WorkflowTemplate
+
+        if not self.templates_file.exists():
+            return []
+
+        try:
+            with open(self.templates_file, 'r') as f:
+                data = json.load(f)
+
+            templates = []
+            templates_dict = data.get('templates', {})
+
+            for slug, template_data in templates_dict.items():
+                template = WorkflowTemplate.from_dict(slug, template_data)
+                templates.append(template)
+
+            return templates
+        except (json.JSONDecodeError, IOError):
+            return []
+
+    def get_workflow_template(self, slug: str):
+        """Get a specific workflow template by slug."""
+        from ..models import WorkflowTemplate
+
+        if not self.templates_file.exists():
+            return None
+
+        try:
+            with open(self.templates_file, 'r') as f:
+                data = json.load(f)
+
+            template_data = data.get('templates', {}).get(slug)
+            if not template_data:
+                return None
+
+            return WorkflowTemplate.from_dict(slug, template_data)
+        except (json.JSONDecodeError, IOError):
+            return None
 
     # =========================================================================
     # SKILLS COMMANDS

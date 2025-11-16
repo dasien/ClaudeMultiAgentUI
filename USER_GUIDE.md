@@ -1,6 +1,6 @@
 # Claude Multi-Agent Manager - User Guide
 
-**Version 1.0.8**
+**Version 1.2.0**
 
 This guide provides comprehensive instructions for using the Claude Multi-Agent Manager, a graphical interface for the Claude Multi-Agent Template (CMAT) system.
 
@@ -16,11 +16,12 @@ This guide provides comprehensive instructions for using the Claude Multi-Agent 
 6. [Agent Management](#agent-management)
 7. [Skills System](#skills-system)
 8. [Workflow Visualization](#workflow-visualization)
-9. [Integration Dashboard](#integration-dashboard)
-10. [Settings and Configuration](#settings-and-configuration)
-11. [Keyboard Shortcuts](#keyboard-shortcuts)
-12. [Common Workflows](#common-workflows)
-13. [Troubleshooting](#troubleshooting)
+9. [Workflow Template Management](#workflow-template-management)
+10. [Integration Dashboard](#integration-dashboard)
+11. [Settings and Configuration](#settings-and-configuration)
+12. [Keyboard Shortcuts](#keyboard-shortcuts)
+13. [Common Workflows](#common-workflows)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -999,6 +1000,155 @@ Status: IN PROGRESS - Tester
 **COMPLETE**
 - All agents in workflow finished successfully
 - Enhancement fully processed
+
+---
+
+## Workflow Template Management
+
+### What are Workflow Templates?
+
+**Workflow templates** are pre-configured workflow patterns that can be applied when creating tasks. Templates define:
+- Starting agent
+- Priority level
+- Task type
+- Whether auto-complete and auto-chain should be enabled
+
+Templates make it quick to start common workflows without manually configuring each setting.
+
+### Viewing Workflow Templates
+
+**Menu**: Workflows > Manage Workflow Templates...
+
+**[SCREENSHOT: Workflow Template Manager showing list of templates]**
+
+The Workflow Template Manager shows all available templates:
+
+| Column | Description |
+|--------|-------------|
+| **Name** | Template display name |
+| **Slug** | Template identifier |
+| **Icon** | Visual indicator (emoji) |
+| **First Agent** | Which agent starts the workflow |
+
+### Built-in Templates
+
+CMAT includes several standard templates:
+
+**📋 Full Feature**
+- Starts with: Requirements Analyst
+- Priority: High
+- Type: Analysis
+- Auto-complete: Yes
+- Auto-chain: Yes
+- Use for: Complete feature development from requirements through documentation
+
+**🐛 Bug Fix**
+- Starts with: Implementer
+- Priority: High
+- Type: Implementation
+- Auto-complete: Yes
+- Auto-chain: Yes (skips Requirements Analyst)
+- Use for: Fixing bugs in existing code
+
+**🔥 Hotfix**
+- Starts with: Implementer
+- Priority: Critical
+- Type: Implementation
+- Auto-complete: Yes
+- Auto-chain: No (single agent only)
+- Use for: Emergency fixes that need immediate deployment
+
+**🔧 Refactoring**
+- Starts with: Implementer
+- Priority: Normal
+- Type: Implementation
+- Auto-complete: Yes
+- Auto-chain: Yes (goes to Tester, skips Requirements/Architect)
+- Use for: Code improvements without new features
+
+### Creating a Custom Template
+
+Click **Create New Template** in the Workflow Template Manager.
+
+**[SCREENSHOT: Template Details dialog]**
+
+#### Template Configuration
+
+**Name** (required)
+- Display name shown in UI
+- Example: "Security Audit"
+
+**Slug** (required)
+- Unique identifier
+- Lowercase with hyphens
+- Example: `security-audit`
+
+**Icon** (optional)
+- Emoji to display with template
+- Example: 🔒
+- Makes templates visually distinct
+
+**Description** (required)
+- Explains when to use this template
+- Shown as tooltip in task creation
+- Example: "For security review and vulnerability assessment"
+
+**First Agent** (required)
+- Which agent starts this workflow
+- Select from available agents
+- Example: Implementer, Tester, etc.
+
+**Priority** (required)
+- Default priority for tasks using this template
+- Options: Critical, High, Normal, Low
+
+**Task Type** (required)
+- Default task type
+- Options: Analysis, Technical Analysis, Implementation, Testing, Documentation, Integration
+
+**Auto Complete** (checkbox)
+- Whether tasks auto-complete without user confirmation
+- Recommended: Check for trusted workflows
+
+**Auto Chain** (checkbox)
+- Whether to automatically create next agent's task
+- Recommended: Check for multi-agent workflows
+
+### Editing a Template
+
+1. Select template in Template Manager
+2. Click **Edit Selected** or double-click template
+3. Modify any settings
+4. Click **Save Template**
+
+**What gets updated**:
+- `.claude/queues/workflow_templates.json`
+- Template immediately available in task creation
+
+### Deleting a Template
+
+1. Select template in Template Manager
+2. Click **Delete Selected**
+3. Confirm deletion
+
+**Note**: Built-in templates cannot be deleted (only custom templates).
+
+### Using Templates in Task Creation
+
+When creating a task:
+
+1. Select a template from the **Quick Start Workflow** dropdown
+2. Template auto-fills:
+   - Agent field
+   - Priority field
+   - Task Type field
+   - Auto-complete checkbox
+   - Auto-chain checkbox
+3. You can still override any auto-filled values
+4. Add title, source file, and description as usual
+5. Create task normally
+
+**Benefit**: Saves time and ensures consistent workflow patterns across your project.
 
 ---
 

@@ -10,6 +10,7 @@ from .queue_ui_state import QueueUIState
 from .agent import Agent
 from .tool import Tool
 from .agent_persona import AgentPersona
+from .workflow_template import WorkflowTemplate, WorkflowStep
 
 __all__ = [
     'ConnectionState',
@@ -20,4 +21,6 @@ __all__ = [
     'Agent',
     'Tool',
     'AgentPersona',
+    'WorkflowTemplate',
+    'WorkflowStep',
 ]

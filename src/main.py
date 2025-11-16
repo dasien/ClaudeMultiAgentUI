@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Task Queue Manager
+Claude Multi-Agent Manager.
 Enhanced with Skills, Workflows, and Integration features.
 """
 
@@ -13,6 +13,7 @@ from .models import ConnectionState, QueueUIState
 from .config import Config
 from .settings import Settings
 from .utils import TimeUtils
+from .dialogs import WorkflowTemplateManagerDialog
 
 try:
     from PIL import Image, ImageTk
@@ -21,7 +22,7 @@ except ImportError:
     PIL_AVAILABLE = False
 
 
-class TaskQueueUI:
+class MainView:
     """Main application window for Task Queue Manager."""
 
     def __init__(self, root):
@@ -148,6 +149,8 @@ class TaskQueueUI:
         menubar.add_cascade(label="Workflows", menu=workflows_menu)
         workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,
                                    accelerator="Ctrl+W")
+        workflows_menu.add_separator()  # ADD THIS
+        workflows_menu.add_command(label="Manage Templates...", command=self.show_workflow_template_manager)
 
         # Integration menu
         integration_menu = tk.Menu(menubar, tearoff=0)
@@ -788,6 +791,19 @@ class TaskQueueUI:
         from .dialogs import WorkflowStateViewer
         WorkflowStateViewer(self.root, self.queue)
 
+    def show_workflow_template_manager(self):
+        """Show workflow template manager."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+        try:
+            dialog = WorkflowTemplateManagerDialog(self.root, self.queue)
+
+        except Exception as e:
+            print(f"DEBUG: Error creating dialog: {e}")
+            import traceback
+            traceback.print_exc()
+
     def show_enhancement_generator(self):
         """Show enhancement generator dialog."""
         if self.state.connection_state != ConnectionState.CONNECTED:
@@ -857,7 +873,7 @@ class TaskQueueUI:
 def main():
     """Main entry point."""
     root = tk.Tk()
-    app = TaskQueueUI(root)
+    app = MainView(root)
     root.mainloop()
 
 
