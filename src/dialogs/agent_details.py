@@ -162,7 +162,7 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         self.output_dir_var = tk.StringVar()
         ttk.Entry(parent, textvariable=self.output_dir_var, width=50).pack(fill="x", pady=(0, 15))
 
-        ttk.Label(parent, text="Root Document: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        ttk.Label(parent, text="Output Root Document: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
         self.root_doc_var = tk.StringVar(value="summary.md")
         ttk.Entry(parent, textvariable=self.root_doc_var, width=50).pack(fill="x", pady=(0, 15))
 
@@ -300,7 +300,7 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         category_filter = self.skills_category_var.get()
         skills_list = self.skills_data.get('skills', [])
 
-        canvas = tk.Canvas(self.skills_checkboxes_frame, height=400, width=600)
+        canvas = tk.Canvas(self.skills_checkboxes_frame, height=400)
         scrollbar = ttk.Scrollbar(self.skills_checkboxes_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
@@ -309,8 +309,14 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
             lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
 
-        canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
+        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Update window width when canvas resizes
+        def on_canvas_configure(event):
+            canvas.itemconfig(canvas_window, width=event.width)
+
+        canvas.bind('<Configure>', on_canvas_configure)
 
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
