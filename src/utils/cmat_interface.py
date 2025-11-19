@@ -1,6 +1,6 @@
 """
 CMAT interface for communicating with the cmat.sh script system.
-Version 3.0 - Simplified for cmat.sh only (no backward compatibility).
+Version 5.0 - Updated for workflow-based orchestration.
 """
 
 import json
@@ -13,7 +13,7 @@ from ..models import Task, AgentStatus, QueueState
 
 
 class CMATInterface:
-    """Interface to the cmat.sh command system (v3.0+)."""
+    """Interface to the cmat.sh command system (v5.0+)."""
 
     def __init__(self, cmat_script_path: str):
         """Initialize the queue interface.
@@ -32,8 +32,6 @@ class CMATInterface:
         self.logs_dir = self.project_root / ".claude/logs"
         self.agents_file = self.project_root / ".claude/agents/agents.json"
         self.tools_file = self.project_root / ".claude/tools/tools.json"
-        self.contracts_file = self.project_root / ".claude/agents/agent_contracts.json"
-        self.states_file = self.project_root / ".claude/queues/workflow_states.json"
         self.skills_file = self.project_root / ".claude/skills/skills.json"
         self.templates_file = self.project_root / ".claude/queues/workflow_templates.json"
 
@@ -132,19 +130,11 @@ class CMATInterface:
         self._run_command(*args)
 
     def clear_finished_tasks(self):
-        """Clear all completed and failed tasks from history.
-
-        This removes completed and failed tasks but leaves pending and active tasks intact.
-        Uses --force to bypass confirmation prompts.
-        """
+        """Clear all completed and failed tasks from history."""
         self._run_command("queue", "clear-finished", "--force")
 
     def reset_queue(self):
-        """Reset the entire queue system to empty state.
-
-        This clears all tasks (pending, active, completed, failed) and resets logs.
-        Uses --force to bypass confirmation prompts.
-        """
+        """Reset the entire queue system to empty state."""
         self._run_command("queue", "init", "--force")
 
     def fail_task(self, task_id: str, error: str = ""):
@@ -213,45 +203,21 @@ class CMATInterface:
         )
 
     # =========================================================================
-    # WORKFLOW COMMANDS
+    # WORKFLOW COMMANDS (v5.0)
     # =========================================================================
 
-    def validate_agent_outputs(self, agent: str, source_file: str) -> Tuple[bool, List[str]]:
-        """Validate agent outputs against contract."""
-        enhancement_name = self._extract_enhancement_name(source_file)
-        if not enhancement_name:
-            return False, ["Cannot determine enhancement from source file"]
+    def start_workflow(self, workflow_name: str, enhancement_name: str) -> subprocess.Popen:
+        """
+        Start a workflow using 'cmat workflow start'.
 
-        enhancement_dir = f"enhancements/{enhancement_name}"
+        Args:
+            workflow_name: Name of workflow template
+            enhancement_name: Name of enhancement
 
-        try:
-            output = self._run_command("workflow", "validate", agent, enhancement_dir)
-            lines = [line.strip() for line in output.split('\n') if line.strip()]
-            all_valid = all('✓' in msg or 'passed' in msg.lower() for msg in lines)
-            return all_valid, lines
-        except RuntimeError as e:
-            return False, [str(e)]
-
-    def get_next_agent(self, agent: str, status: str) -> Optional[str]:
-        """Determine next agent based on current agent and status."""
-        try:
-            output = self._run_command("workflow", "next-agent", agent, status)
-            next_agent = output.strip()
-            return next_agent if next_agent != "UNKNOWN" else None
-        except RuntimeError:
-            return None
-
-    def get_next_source_path(self, enhancement: str, next_agent: str, current_agent: str) -> Optional[str]:
-        """Build source file path for next agent."""
-        try:
-            output = self._run_command("workflow", "next-source", enhancement, next_agent, current_agent)
-            return output.strip()
-        except RuntimeError:
-            return None
-
-    def auto_chain_workflow(self, task_id: str, status: str):
-        """Automatically chain to next agent with validation."""
-        self._run_command("workflow", "auto-chain", task_id, status)
+        Returns:
+            Process handle for async execution
+        """
+        return self._run_command_async("workflow", "start", workflow_name, enhancement_name)
 
     def get_workflow_templates(self) -> List:
         """Get all workflow templates using WorkflowTemplate model."""
@@ -265,9 +231,9 @@ class CMATInterface:
                 data = json.load(f)
 
             templates = []
-            templates_dict = data.get('templates', {})
+            workflows_dict = data.get('workflows', {})
 
-            for slug, template_data in templates_dict.items():
+            for slug, template_data in workflows_dict.items():
                 template = WorkflowTemplate.from_dict(slug, template_data)
                 templates.append(template)
 
@@ -286,13 +252,256 @@ class CMATInterface:
             with open(self.templates_file, 'r') as f:
                 data = json.load(f)
 
-            template_data = data.get('templates', {}).get(slug)
+            template_data = data.get('workflows', {}).get(slug)
             if not template_data:
                 return None
 
             return WorkflowTemplate.from_dict(slug, template_data)
         except (json.JSONDecodeError, IOError):
             return None
+
+    def get_workflow_step_details(self, workflow_name: str, step_index: int) -> Optional[Dict]:
+        """
+        Get details for a specific workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_index: Step index (0-based)
+
+        Returns:
+            Step details dict or None if not found
+        """
+        template = self.get_workflow_template(workflow_name)
+        if not template or step_index >= len(template.steps):
+            return None
+
+        step = template.steps[step_index]
+        return {
+            'agent': step.agent,
+            'input': step.input,
+            'required_output': step.required_output,
+            'on_status': step.on_status,
+            'description': step.description
+        }
+
+    def get_step_expected_statuses(self, workflow_name: str, step_index: int) -> List[str]:
+        """
+        Get expected status codes for a workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_index: Step index (0-based)
+
+        Returns:
+            List of expected status codes
+        """
+        step_details = self.get_workflow_step_details(workflow_name, step_index)
+        if not step_details:
+            return []
+
+        return list(step_details.get('on_status', {}).keys())
+
+    def get_step_input_path(self, workflow_name: str, step_index: int,
+                            enhancement_name: str) -> Optional[str]:
+        """
+        Get resolved input path for a workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_index: Step index (0-based)
+            enhancement_name: Enhancement name for placeholder substitution
+
+        Returns:
+            Resolved input path or None
+        """
+        step_details = self.get_workflow_step_details(workflow_name, step_index)
+        if not step_details:
+            return None
+
+        input_pattern = step_details['input']
+
+        # Substitute {enhancement_name}
+        resolved = input_pattern.replace('{enhancement_name}', enhancement_name)
+
+        # Handle {previous_step} - need previous agent info
+        if step_index > 0 and '{previous_step}' in resolved:
+            prev_step = self.get_workflow_step_details(workflow_name, step_index - 1)
+            if prev_step:
+                prev_agent = prev_step['agent']
+                resolved = resolved.replace('{previous_step}',
+                                            f"enhancements/{enhancement_name}/{prev_agent}")
+
+        return resolved
+
+    def get_step_output_path(self, workflow_name: str, step_index: int,
+                             enhancement_name: str, agent: str) -> Optional[str]:
+        """
+        Get expected output path for a workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_index: Step index (0-based)
+            enhancement_name: Enhancement name
+            agent: Agent name
+
+        Returns:
+            Expected output path or None
+        """
+        step_details = self.get_workflow_step_details(workflow_name, step_index)
+        if not step_details:
+            return None
+
+        required_output = step_details['required_output']
+        return f"enhancements/{enhancement_name}/{agent}/required_output/{required_output}"
+
+    def validate_step_output(self, workflow_name: str, step_index: int,
+                             agent: str, enhancement_dir: str) -> Tuple[bool, str]:
+        """
+        Validate agent outputs for a workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_index: Step index (0-based)
+            agent: Agent name
+            enhancement_dir: Enhancement directory path
+
+        Returns:
+            (is_valid, message) tuple
+        """
+        step_details = self.get_workflow_step_details(workflow_name, step_index)
+        if not step_details:
+            return False, "Workflow step not found"
+
+        required_output = step_details['required_output']
+
+        try:
+            output = self._run_command("workflow", "validate-output",
+                                       agent, enhancement_dir, required_output)
+            return True, output.strip()
+        except RuntimeError as e:
+            return False, str(e)
+
+    def add_workflow_step(self, workflow_name: str, agent: str,
+                          input_pattern: str, output_filename: str,
+                          position: Optional[int] = None):
+        """
+        Add a step to a workflow template.
+
+        Args:
+            workflow_name: Name of workflow template
+            agent: Agent to execute
+            input_pattern: Input file/directory pattern
+            output_filename: Required output filename
+            position: Optional position to insert (default: append)
+        """
+        args = ["workflow", "add-step", workflow_name, agent, input_pattern, output_filename]
+        if position is not None:
+            args.append(str(position))
+        self._run_command(*args)
+
+    def edit_workflow_step(self, workflow_name: str, step_number: int,
+                           input_pattern: Optional[str] = None,
+                           output_filename: Optional[str] = None):
+        """
+        Edit an existing workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_number: Step number (1-based as shown to user)
+            input_pattern: New input pattern (optional)
+            output_filename: New output filename (optional)
+        """
+        args = ["workflow", "edit-step", workflow_name, str(step_number)]
+        if input_pattern:
+            args.append(input_pattern)
+        if output_filename:
+            args.append(output_filename)
+        self._run_command(*args)
+
+    def remove_workflow_step(self, workflow_name: str, step_number: int):
+        """
+        Remove a step from workflow template.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_number: Step number (1-based as shown to user)
+        """
+        self._run_command("workflow", "remove-step", workflow_name, str(step_number))
+
+    def add_workflow_transition(self, workflow_name: str, step_number: int,
+                                status: str, next_step: str, auto_chain: bool = True):
+        """
+        Add status transition to workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_number: Step number (0-based)
+            status: Status code
+            next_step: Next agent name or 'null' for end
+            auto_chain: Whether to auto-chain
+        """
+        self._run_command("workflow", "add-transition",
+                          workflow_name, str(step_number), status, next_step,
+                          "true" if auto_chain else "false")
+
+    def remove_workflow_transition(self, workflow_name: str, step_number: int, status: str):
+        """
+        Remove status transition from workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_number: Step number (0-based)
+            status: Status code to remove
+        """
+        self._run_command("workflow", "remove-transition",
+                          workflow_name, str(step_number), status)
+
+    def list_workflow_transitions(self, workflow_name: str, step_number: int) -> List[Dict]:
+        """
+        List transitions for a workflow step.
+
+        Args:
+            workflow_name: Name of workflow template
+            step_number: Step number (0-based)
+
+        Returns:
+            List of transition dicts with 'status', 'next_step', 'auto_chain'
+        """
+        try:
+            output = self._run_command("workflow", "list-transitions",
+                                       workflow_name, str(step_number))
+            # Parse output format: "STATUS → NEXT (auto_chain: true)"
+            transitions = []
+            for line in output.strip().split('\n'):
+                if '→' in line:
+                    match = re.match(r'\s*(\S+)\s*→\s*(\S+)\s*\(auto_chain:\s*(\w+)\)', line)
+                    if match:
+                        transitions.append({
+                            'status': match.group(1),
+                            'next_step': match.group(2),
+                            'auto_chain': match.group(3) == 'true'
+                        })
+            return transitions
+        except RuntimeError:
+            return []
+
+    def validate_workflow(self, workflow_name: str) -> Tuple[bool, List[str]]:
+        """
+        Validate a workflow template.
+
+        Args:
+            workflow_name: Name of workflow template
+
+        Returns:
+            (is_valid, messages) tuple
+        """
+        try:
+            output = self._run_command("workflow", "validate", workflow_name)
+            lines = [line.strip() for line in output.split('\n') if line.strip()]
+            is_valid = any('validation passed' in line.lower() for line in lines)
+            return is_valid, lines
+        except RuntimeError as e:
+            return False, [str(e)]
 
     # =========================================================================
     # SKILLS COMMANDS
@@ -397,81 +606,26 @@ class CMATInterface:
 
         return result
 
-    # =========================================================================
-    # CONTRACT AND STATE METHODS
-    # =========================================================================
+    def get_agent_role(self, agent: str) -> Optional[str]:
+        """
+        Get role for specific agent.
 
-    def get_agent_contracts(self) -> Optional[dict]:
-        """Load AGENT_CONTRACTS.json."""
-        if not self.contracts_file.exists():
+        Args:
+            agent: Agent key (agent-file)
+
+        Returns:
+            Role string or None
+        """
+        agents_data = self.get_agents_data()
+        if not agents_data:
             return None
 
-        with open(self.contracts_file, 'r') as f:
-            return json.load(f)
+        agents_list = agents_data.get('agents', [])
+        for agent_data in agents_list:
+            if agent_data.get('agent-file') == agent:
+                return agent_data.get('role')
 
-    def get_workflow_states(self) -> Optional[dict]:
-        """Load WORKFLOW_STATES.json."""
-        if not self.states_file.exists():
-            return None
-
-        with open(self.states_file, 'r') as f:
-            return json.load(f)
-
-    def get_agent_contract(self, agent: str) -> Optional[dict]:
-        """Get contract for specific agent."""
-        contracts = self.get_agent_contracts()
-        return contracts.get('agents', {}).get(agent) if contracts else None
-
-    def validate_source_file_pattern(self, agent: str, source_file: str) -> Tuple[bool, str]:
-        """Validate source file against agent's expected pattern."""
-        contract = self.get_agent_contract(agent)
-        if not contract:
-            return True, "No contract found"
-
-        required_inputs = contract.get('inputs', {}).get('required', [])
-        if not required_inputs:
-            return True, "No input pattern specified"
-
-        pattern = required_inputs[0].get('pattern', '')
-        if not pattern:
-            return True, "No pattern specified"
-
-        regex_pattern = pattern.replace('{enhancement_name}', r'([^/]+)')
-        regex_pattern = f"^{regex_pattern}$"
-
-        if re.match(regex_pattern, source_file):
-            return True, f"✓ Matches pattern: {pattern}"
-        else:
-            return False, f"✗ Expected pattern: {pattern}"
-
-    def get_expected_output_path(self, agent: str, source_file: str) -> Optional[str]:
-        """Get expected output path for an agent."""
-        contract = self.get_agent_contract(agent)
-        if not contract:
-            return None
-
-        enhancement_name = self._extract_enhancement_name(source_file)
-        if not enhancement_name:
-            return None
-
-        outputs = contract.get('outputs', {})
-        output_dir = outputs.get('output_directory', '')
-        root_doc = outputs.get('root_document', '')
-
-        return f"enhancements/{enhancement_name}/{output_dir}/{root_doc}"
-
-    def get_next_agents(self, agent: str, status: str) -> List[str]:
-        """Get next agents based on current agent and status."""
-        contract = self.get_agent_contract(agent)
-        if not contract:
-            return []
-
-        success_statuses = contract.get('statuses', {}).get('success', [])
-        for status_def in success_statuses:
-            if status_def.get('code') == status:
-                return status_def.get('next_agents', [])
-
-        return []
+        return None
 
     # =========================================================================
     # UTILITY METHODS
@@ -484,7 +638,7 @@ class CMATInterface:
             for line in output.split('\n'):
                 if line.startswith('cmat v'):
                     return line.split('v')[1].strip()
-            return "3.0.0"
+            return "5.0.0"
         except RuntimeError:
             return "unknown"
 
@@ -544,18 +698,11 @@ class CMATInterface:
         return ''.join(lines[-max_lines:])
 
     def extract_skills_used(self, log_content: str) -> List[str]:
-        """Extract skills that were applied from task log.
-
-        Supports two formats:
-        1. New format: SKILLS_USED: skill1, skill2, skill3
-        2. Old format: ## Skills Applied with checkbox list
-        """
+        """Extract skills that were applied from task log."""
         skills_used = []
 
-        # Find the agent's output (after END OF PROMPT marker)
         agent_output = log_content
         if "END OF PROMPT" in log_content:
-            # Only search in the agent's output, not the prompt
             agent_output = log_content.split("END OF PROMPT", 1)[1]
 
         # Try new format first: SKILLS_USED: skill1, skill2, skill3
@@ -563,7 +710,6 @@ class CMATInterface:
             match = re.search(r'SKILLS_USED:\s*([^\n]+)', agent_output)
             if match:
                 skills_line = match.group(1).strip()
-                # Split by comma and clean up each skill name
                 skills_used = [skill.strip() for skill in skills_line.split(',') if skill.strip()]
                 return skills_used
 
@@ -579,13 +725,11 @@ class CMATInterface:
                 in_skills = True
                 continue
             elif in_skills:
-                # Look for checkbox pattern: - ✅ **skill-name**: description
                 if line.startswith('- ✅'):
                     match = re.search(r'\*\*([^*]+)\*\*', line)
                     if match:
                         skills_used.append(match.group(1))
                 elif not line.strip() or line.startswith('#'):
-                    # End of skills section
                     break
 
         return skills_used

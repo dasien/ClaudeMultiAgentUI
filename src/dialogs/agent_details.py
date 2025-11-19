@@ -1,12 +1,12 @@
 """
-Enhanced Agent Manager with skills editing support.
+Enhanced Agent Manager with skills editing support (v5.0).
+Simplified - agents are just capabilities, no workflow orchestration.
 """
 
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
 import json
-import re
 
 from .base_dialog import BaseDialog
 from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
@@ -14,13 +14,13 @@ from ..utils import to_slug, validate_slug
 
 
 class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
-    """Enhanced dialog for creating/editing agents with skills support."""
+    """Enhanced dialog for creating/editing agents (v5.0 - simplified)."""
 
     def __init__(self, parent, queue_interface, settings=None, mode='create', agent_file=None):
         # Initialize base classes
         BaseDialog.__init__(self, parent,
                             "Create New Agent" if mode == 'create' else "Edit Agent",
-                            900, 800)
+                            800, 850)
         ClaudeGeneratorMixin.__init__(self, settings)
 
         self.queue = queue_interface
@@ -29,7 +29,6 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
 
         self.agents_dir = self.queue.agents_file.parent
         self.agents_json_file = self.queue.agents_file
-        self.contracts_file = self.queue.contracts_file
 
         # Load data
         self.tools_data = self.queue.get_tools_data()
@@ -56,25 +55,22 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         notebook = ttk.Notebook(main_frame)
         notebook.pack(fill="both", expand=True, pady=(0, 10))
 
-        # Tabs
+        # Tabs (removed Workflow tab)
         basic_tab = ttk.Frame(notebook, padding=20)
-        workflow_tab = ttk.Frame(notebook, padding=20)
         tools_tab = ttk.Frame(notebook, padding=20)
         skills_tab = ttk.Frame(notebook, padding=20)
 
         notebook.add(basic_tab, text="Basic Info")
-        notebook.add(workflow_tab, text="Workflow")
         notebook.add(tools_tab, text="Tools")
         notebook.add(skills_tab, text="Skills")
 
         self.build_basic_tab(basic_tab)
-        self.build_workflow_tab(workflow_tab)
         self.build_tools_tab(tools_tab)
         self.build_skills_tab(skills_tab)
 
-        # Bottom buttons - Using BaseDialog helper
+        # Bottom buttons
         self.create_button_frame(main_frame, [
-            ("Save Agent", self.save_agent),
+            ("Save", self.save_agent),
             ("Cancel", self.cancel)
         ])
 
@@ -128,15 +124,43 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         self.description_var = tk.StringVar()
         ttk.Entry(parent, textvariable=self.description_var, width=70).pack(fill="x", pady=(0, 15))
 
+        # Role (simplified - just categorization)
+        ttk.Label(parent, text="Role: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        ttk.Label(
+            parent,
+            text="Role is used for categorization and task type suggestions",
+            font=('Arial', 8),
+            foreground='gray'
+        ).pack(anchor="w")
+
+        self.role_var = tk.StringVar()
+        role_combo = ttk.Combobox(parent, textvariable=self.role_var, state='readonly', width=40)
+        role_combo['values'] = [
+            'analysis',
+            'technical_design',
+            'implementation',
+            'testing',
+            'documentation',
+            'integration'
+        ]
+        role_combo.pack(fill="x", pady=(5, 15))
+
         # Agent Details
         details_header = ttk.Frame(parent)
         details_header.pack(fill="x", pady=(0, 5))
 
-        ttk.Label(details_header, text="Role Definition: *", font=('Arial', 10, 'bold')).pack(side="left")
+        ttk.Label(details_header, text="Agent Instructions: *", font=('Arial', 10, 'bold')).pack(side="left")
 
         api_key = self.settings.get_claude_api_key() if self.settings else None
         if api_key:
             ttk.Button(details_header, text="Generate with Claude", command=self.generate_details).pack(side="right")
+
+        ttk.Label(
+            parent,
+            text="Describe what this agent does, its responsibilities, and output standards",
+            font=('Arial', 8),
+            foreground='gray'
+        ).pack(anchor="w", pady=(0, 5))
 
         details_frame = ttk.Frame(parent)
         details_frame.pack(fill="both", expand=True)
@@ -148,47 +172,17 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         self.details_text.pack(side="left", fill="both", expand=True)
         details_scroll.pack(side="right", fill="y")
 
-    def build_workflow_tab(self, parent):
-        """Build workflow contract tab."""
-        ttk.Label(parent, text="Workflow Role: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
-        self.role_var = tk.StringVar()
-        role_combo = ttk.Combobox(parent, textvariable=self.role_var, state='readonly', width=40)
-        role_combo['values'] = ['analysis', 'technical_design', 'implementation', 'testing', 'documentation',
-                                'integration']
-        role_combo.pack(fill="x", pady=(0, 15))
-        role_combo.bind('<<ComboboxSelected>>', self.on_role_selected)
+        # Note about workflow configuration
+        note_frame = ttk.Frame(parent)
+        note_frame.pack(fill="x", pady=(10, 0))
 
-        ttk.Label(parent, text="Output Directory: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
-        self.output_dir_var = tk.StringVar()
-        ttk.Entry(parent, textvariable=self.output_dir_var, width=50).pack(fill="x", pady=(0, 15))
-
-        ttk.Label(parent, text="Output Root Document: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
-        self.root_doc_var = tk.StringVar(value="summary.md")
-        ttk.Entry(parent, textvariable=self.root_doc_var, width=50).pack(fill="x", pady=(0, 15))
-
-        ttk.Label(parent, text="Success Status Code: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
-        self.success_status_var = tk.StringVar()
-        status_combo = ttk.Combobox(parent, textvariable=self.success_status_var, state='readonly', width=40)
-        status_combo['values'] = [
-            'READY_FOR_DEVELOPMENT',
-            'READY_FOR_IMPLEMENTATION',
-            'READY_FOR_TESTING',
-            'TESTING_COMPLETE',
-            'DOCUMENTATION_COMPLETE',
-            'INTEGRATION_COMPLETE'
-        ]
-        status_combo.pack(fill="x", pady=(0, 15))
-
-        ttk.Label(parent, text="Next Agent: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
-        self.next_agent_var = tk.StringVar()
-        self.next_agent_combo = ttk.Combobox(parent, textvariable=self.next_agent_var, state='readonly', width=40)
-        next_values = ['(none - workflow ends)'] + list(self.agents_map.values())
-        self.next_agent_combo['values'] = next_values
-        self.next_agent_combo.pack(fill="x", pady=(0, 15))
-
-        self.metadata_required_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(parent, text="Require metadata header in outputs", variable=self.metadata_required_var).pack(
-            anchor="w")
+        ttk.Label(
+            note_frame,
+            text="ℹ️  Note: Workflow orchestration (inputs, outputs, next steps) is configured in Workflow Templates.",
+            font=('Arial', 9),
+            foreground='blue',
+            wraplength=700
+        ).pack(anchor="w")
 
     def build_tools_tab(self, parent):
         """Build tools selection tab."""
@@ -312,7 +306,6 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor='nw')
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # Update window width when canvas resizes
         def on_canvas_configure(event):
             canvas.itemconfig(canvas_window, width=event.width)
 
@@ -420,55 +413,214 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         except Exception as e:
             messagebox.showerror("Error", f"Failed to build preview: {e}")
 
-    def on_role_selected(self, event=None):
-        """Auto-populate fields based on role."""
-        role = self.role_var.get()
+    def on_name_changed(self, *args):
+        """Auto-generate filename from name if enabled."""
+        if self.mode == 'create' and self.auto_filename_var.get():
+            name = self.name_var.get().strip()
+            slug = to_slug(name)
+            self.file_var.set(slug)
 
-        defaults = {
-            'analysis': {
-                'output_dir': 'requirements-analyst',
-                'root_doc': 'analysis_summary.md',
-                'status': 'READY_FOR_DEVELOPMENT',
-                'next': 'Architect'
-            },
-            'technical_design': {
-                'output_dir': 'architect',
-                'root_doc': 'implementation_plan.md',
-                'status': 'READY_FOR_IMPLEMENTATION',
-                'next': 'Implementer'
-            },
-            'implementation': {
-                'output_dir': 'implementer',
-                'root_doc': 'test_plan.md',
-                'status': 'READY_FOR_TESTING',
-                'next': 'Tester'
-            },
-            'testing': {
-                'output_dir': 'tester',
-                'root_doc': 'test_summary.md',
-                'status': 'TESTING_COMPLETE',
-                'next': 'Documenter'
-            },
-            'documentation': {
-                'output_dir': 'documenter',
-                'root_doc': 'documentation_summary.md',
-                'status': 'DOCUMENTATION_COMPLETE',
-                'next': '(none - workflow ends)'
-            },
-            'integration': {
-                'output_dir': 'integration-coordinator',
-                'root_doc': 'integration_summary.md',
-                'status': 'INTEGRATION_COMPLETE',
-                'next': '(none - workflow ends)'
-            }
-        }
+    def toggle_filename_auto(self):
+        """Toggle auto-generation of filename."""
+        if self.auto_filename_var.get():
+            self.file_entry.config(state='readonly')
+            self.on_name_changed()
+        else:
+            self.file_entry.config(state='normal')
 
-        if role in defaults:
-            d = defaults[role]
-            self.output_dir_var.set(d['output_dir'])
-            self.root_doc_var.set(d['root_doc'])
-            self.success_status_var.set(d['status'])
-            self.next_agent_var.set(d['next'])
+    def generate_details(self):
+        """Generate agent details with AI."""
+        name = self.name_var.get().strip()
+        description = self.description_var.get().strip()
+        role = self.role_var.get().strip()
+
+        if not name or not description:
+            messagebox.showwarning("Missing Info", "Enter name and description first.")
+            return
+
+        context = f"""Agent: {name}
+Description: {description}
+Role: {role}
+
+Generate comprehensive agent instructions with:
+- Role and Purpose
+- Core Responsibilities  
+- Key Tasks
+- Output Standards
+- Success Criteria
+- Scope Boundaries (DO/DON'T)
+
+Note: This agent will be used in workflows. Focus on what the agent DOES, not on workflow orchestration."""
+
+        # Using ClaudeGeneratorMixin
+        self.call_claude_async(
+            context=context,
+            system_prompt=None,
+            message="Generating agent instructions",
+            estimate="30-60 seconds",
+            on_success=self.on_generation_complete,
+            on_error=self.on_generation_error
+        )
+
+    def on_generation_complete(self, content: str):
+        """Handle successful generation."""
+        self.details_text.delete('1.0', tk.END)
+        self.details_text.insert('1.0', content)
+
+    def on_generation_error(self, error: Exception):
+        """Handle generation error."""
+        messagebox.showerror("Error", f"AI generation failed: {error}")
+
+    def validate(self) -> bool:
+        """Validate agent form before saving."""
+        name = self.name_var.get().strip()
+        file_slug = self.file_var.get().strip()
+        description = self.description_var.get().strip()
+        role = self.role_var.get().strip()
+        details = self.details_text.get('1.0', tk.END).strip()
+
+        tools = [name for name, var in self.tool_checkboxes.items() if var.get()]
+        skills = [skill_dir for skill_dir, var in self.skill_checkboxes.items() if var.get()]
+
+        if not all([name, file_slug, description, role, details]):
+            messagebox.showwarning("Validation", "All required fields must be filled.")
+            return False
+
+        if not tools:
+            messagebox.showwarning("Validation", "Select at least one tool.")
+            return False
+
+        if not validate_slug(file_slug):
+            messagebox.showerror("Invalid File Name", "File name must be lowercase with hyphens only.")
+            return False
+
+        return True
+
+    def load_agent_data(self):
+        """Load existing agent for editing."""
+        try:
+            with open(self.agents_json_file, 'r') as f:
+                data = json.load(f)
+
+            agents = data.get('agents', []) if isinstance(data, dict) else data
+            agent_data = next((a for a in agents if a.get('agent-file') == self.agent_file), None)
+
+            if not agent_data:
+                messagebox.showerror("Error", f"Agent '{self.agent_file}' not found")
+                self.cancel()
+                return
+
+            # Set basic fields
+            self.name_var.set(agent_data.get('name', ''))
+            self.file_var.set(self.agent_file)
+            self.description_var.set(agent_data.get('description', ''))
+            self.role_var.set(agent_data.get('role', ''))
+
+            # Set tools
+            tools = agent_data.get('tools', [])
+            for tool_name, var in self.tool_checkboxes.items():
+                var.set(tool_name in tools)
+
+            # Set skills
+            skills = agent_data.get('skills', [])
+            for skill_dir, var in self.skill_checkboxes.items():
+                var.set(skill_dir in skills)
+            self.update_skills_summary()
+
+            # Load markdown
+            md_file = self.agents_dir / f"{self.agent_file}.md"
+            if md_file.exists():
+                with open(md_file, 'r') as f:
+                    content = f.read()
+                    parts = content.split('---', 2)
+                    if len(parts) >= 3:
+                        self.details_text.insert('1.0', parts[2].strip())
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load: {e}")
+            self.cancel()
+
+    def save_agent(self):
+        """Save the agent (v5.0 - simplified)."""
+        if not self.validate():
+            return
+
+        # Get validated values
+        name = self.name_var.get().strip()
+        file_slug = self.file_var.get().strip()
+        description = self.description_var.get().strip()
+        role = self.role_var.get().strip()
+        details = self.details_text.get('1.0', tk.END).strip()
+
+        tools = [name for name, var in self.tool_checkboxes.items() if var.get()]
+        skills = [skill_dir for skill_dir, var in self.skill_checkboxes.items() if var.get()]
+
+        try:
+            # Update agents.json
+            with open(self.agents_json_file, 'r') as f:
+                data = json.load(f)
+
+            agents = data.get('agents', []) if isinstance(data, dict) else data
+
+            if self.mode == 'create':
+                if any(a.get('agent-file') == file_slug for a in agents):
+                    messagebox.showerror("Duplicate", f"Agent '{file_slug}' already exists.")
+                    return
+
+                agents.append({
+                    "name": name,
+                    "agent-file": file_slug,
+                    "role": role,
+                    "tools": tools,
+                    "skills": skills,
+                    "description": description,
+                    "validations": {
+                        "metadata_required": True
+                    }
+                })
+            else:
+                for agent in agents:
+                    if agent.get('agent-file') == file_slug:
+                        agent['name'] = name
+                        agent['role'] = role
+                        agent['tools'] = tools
+                        agent['skills'] = skills
+                        agent['description'] = description
+                        # Preserve validations if exists
+                        if 'validations' not in agent:
+                            agent['validations'] = {"metadata_required": True}
+                        break
+
+            # Save agents.json
+            if isinstance(data, dict):
+                data['agents'] = agents
+                with open(self.agents_json_file, 'w') as f:
+                    json.dump(data, f, indent=2)
+            else:
+                with open(self.agents_json_file, 'w') as f:
+                    json.dump(agents, f, indent=2)
+
+            # Create markdown file
+            md_content = f"""---
+name: "{name}"
+description: "{description}"
+role: "{role}"
+tools: {json.dumps(tools)}
+skills: {json.dumps(skills)}
+---
+
+{details}
+"""
+
+            md_file = self.agents_dir / f"{file_slug}.md"
+            with open(md_file, 'w') as f:
+                f.write(md_content)
+
+            # Success
+            self.close(result=file_slug)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save: {e}")
 
     def on_persona_selected(self, event=None):
         """Apply persona tool selection."""
@@ -494,277 +646,3 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         persona_tools = personas[persona_key].get('tools', [])
         for tool_name in self.tool_checkboxes.keys():
             self.tool_checkboxes[tool_name].set(tool_name in persona_tools)
-
-    def on_name_changed(self, *args):
-        """Auto-generate filename from name if enabled."""
-        if self.mode == 'create' and self.auto_filename_var.get():
-            name = self.name_var.get().strip()
-            slug = to_slug(name)  # Using utility function!
-            self.file_var.set(slug)
-
-    def toggle_filename_auto(self):
-        """Toggle auto-generation of filename."""
-        if self.auto_filename_var.get():
-            self.file_entry.config(state='readonly')
-            self.on_name_changed()
-        else:
-            self.file_entry.config(state='normal')
-
-    def generate_details(self):
-        """Generate agent details with AI."""
-        name = self.name_var.get().strip()
-        description = self.description_var.get().strip()
-
-        if not name or not description:
-            messagebox.showwarning("Missing Info", "Enter name and description first.")
-            return
-
-        context = f"""Agent: {name}
-Description: {description}
-
-Generate comprehensive agent role definition with:
-- Role and Purpose
-- Core Responsibilities
-- Workflow steps
-- Output Standards
-- Success Criteria
-- Scope Boundaries (DO/DON'T)"""
-
-        # Using ClaudeGeneratorMixin - Much simpler!
-        self.call_claude_async(
-            context=context,
-            system_prompt=None,  # No system prompt for this one
-            message="Generating agent role definition",
-            estimate="30-60 seconds",
-            # timeout will use configured value from settings
-            on_success=self.on_generation_complete,
-            on_error=self.on_generation_error
-        )
-
-    def on_generation_complete(self, content: str):
-        """Handle successful generation."""
-        self.details_text.delete('1.0', tk.END)
-        self.details_text.insert('1.0', content)
-
-    def on_generation_error(self, error: Exception):
-        """Handle generation error."""
-        messagebox.showerror("Error", f"AI generation failed: {error}")
-
-    def validate(self) -> bool:
-        """Validate agent form before saving."""
-        name = self.name_var.get().strip()
-        file_slug = self.file_var.get().strip()
-        description = self.description_var.get().strip()
-        details = self.details_text.get('1.0', tk.END).strip()
-
-        tools = [name for name, var in self.tool_checkboxes.items() if var.get()]
-        skills = [skill_dir for skill_dir, var in self.skill_checkboxes.items() if var.get()]
-
-        role = self.role_var.get().strip()
-        output_dir = self.output_dir_var.get().strip()
-        root_doc = self.root_doc_var.get().strip()
-        success_status = self.success_status_var.get().strip()
-        next_agent = self.next_agent_var.get().strip()
-
-        if not all([name, file_slug, description, details, role, output_dir, root_doc, success_status, next_agent]):
-            messagebox.showwarning("Validation", "All required fields must be filled.")
-            return False
-
-        if not tools:
-            messagebox.showwarning("Validation", "Select at least one tool.")
-            return False
-
-        if not validate_slug(file_slug):  # Using utility!
-            messagebox.showerror("Invalid File Name", "File name must be lowercase with hyphens only.")
-            return False
-
-        return True
-
-    def load_agent_data(self):
-        """Load existing agent for editing."""
-        try:
-            with open(self.agents_json_file, 'r') as f:
-                data = json.load(f)
-
-            agents = data.get('agents', []) if isinstance(data, dict) else data
-            agent_data = next((a for a in agents if a.get('agent-file') == self.agent_file), None)
-
-            if not agent_data:
-                messagebox.showerror("Error", f"Agent '{self.agent_file}' not found")
-                self.cancel()
-                return
-
-            # Set basic fields
-            self.name_var.set(agent_data.get('name', ''))
-            self.file_var.set(self.agent_file)
-            self.description_var.set(agent_data.get('description', ''))
-
-            # Set tools
-            tools = agent_data.get('tools', [])
-            for tool_name, var in self.tool_checkboxes.items():
-                var.set(tool_name in tools)
-
-            # Set skills
-            skills = agent_data.get('skills', [])
-            for skill_dir, var in self.skill_checkboxes.items():
-                var.set(skill_dir in skills)
-            self.update_skills_summary()
-
-            # Load contract
-            if self.contracts_file.exists():
-                with open(self.contracts_file, 'r') as f:
-                    contracts = json.load(f)
-
-                contract = contracts.get('agents', {}).get(self.agent_file, {})
-                if contract:
-                    self.role_var.set(contract.get('role', ''))
-                    self.output_dir_var.set(contract.get('outputs', {}).get('output_directory', ''))
-                    self.root_doc_var.set(contract.get('outputs', {}).get('root_document', ''))
-
-                    success = contract.get('statuses', {}).get('success', [])
-                    if success:
-                        self.success_status_var.set(success[0].get('code', ''))
-                        next_agents = success[0].get('next_agents', [])
-                        if next_agents:
-                            next_name = self.agents_map.get(next_agents[0], next_agents[0])
-                            self.next_agent_var.set(next_name)
-                        else:
-                            self.next_agent_var.set('(none - workflow ends)')
-
-                    self.metadata_required_var.set(contract.get('metadata_required', True))
-
-            # Load markdown
-            md_file = self.agents_dir / f"{self.agent_file}.md"
-            if md_file.exists():
-                with open(md_file, 'r') as f:
-                    content = f.read()
-                    parts = content.split('---', 2)
-                    if len(parts) >= 3:
-                        self.details_text.insert('1.0', parts[2].strip())
-
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to load: {e}")
-            self.cancel()
-
-    def save_agent(self):
-        """Save the agent."""
-        if not self.validate():
-            return
-
-        # Get validated values
-        name = self.name_var.get().strip()
-        file_slug = self.file_var.get().strip()
-        description = self.description_var.get().strip()
-        details = self.details_text.get('1.0', tk.END).strip()
-
-        tools = [name for name, var in self.tool_checkboxes.items() if var.get()]
-        skills = [skill_dir for skill_dir, var in self.skill_checkboxes.items() if var.get()]
-
-        role = self.role_var.get().strip()
-        output_dir = self.output_dir_var.get().strip()
-        root_doc = self.root_doc_var.get().strip()
-        success_status = self.success_status_var.get().strip()
-        next_agent = self.next_agent_var.get().strip()
-
-        # Get next agent key
-        next_agent_file = None
-        if next_agent != '(none - workflow ends)':
-            for key, val in self.agents_map.items():
-                if val == next_agent:
-                    next_agent_file = key
-                    break
-
-        try:
-            # Update agents.json
-            with open(self.agents_json_file, 'r') as f:
-                data = json.load(f)
-
-            agents = data.get('agents', []) if isinstance(data, dict) else data
-
-            if self.mode == 'create':
-                if any(a.get('agent-file') == file_slug for a in agents):
-                    messagebox.showerror("Duplicate", f"Agent '{file_slug}' already exists.")
-                    return
-
-                agents.append({
-                    "name": name,
-                    "agent-file": file_slug,
-                    "tools": tools,
-                    "skills": skills,
-                    "description": description
-                })
-            else:
-                for agent in agents:
-                    if agent.get('agent-file') == file_slug:
-                        agent['name'] = name
-                        agent['tools'] = tools
-                        agent['skills'] = skills
-                        agent['description'] = description
-                        break
-
-            # Save agents.json
-            if isinstance(data, dict):
-                data['agents'] = agents
-                with open(self.agents_json_file, 'w') as f:
-                    json.dump(data, f, indent=2)
-            else:
-                with open(self.agents_json_file, 'w') as f:
-                    json.dump(agents, f, indent=2)
-
-            # Update contracts
-            with open(self.contracts_file, 'r') as f:
-                contracts = json.load(f)
-
-            contracts['agents'][file_slug] = {
-                "role": role,
-                "description": description,
-                "inputs": {
-                    "required": [{
-                        "name": "source_document",
-                        "pattern": "enhancements/{enhancement_name}/*/{document}.md",
-                        "description": "Input from previous phase"
-                    }]
-                },
-                "outputs": {
-                    "root_document": root_doc,
-                    "output_directory": output_dir,
-                    "additional_required": []
-                },
-                "statuses": {
-                    "success": [{
-                        "code": success_status,
-                        "description": f"{name} complete",
-                        "next_agents": [next_agent_file] if next_agent_file else []
-                    }],
-                    "failure": [{
-                        "code": "BLOCKED",
-                        "pattern": "BLOCKED: {reason}",
-                        "description": "Cannot proceed"
-                    }]
-                },
-                "metadata_required": self.metadata_required_var.get()
-            }
-
-            with open(self.contracts_file, 'w') as f:
-                json.dump(contracts, f, indent=2)
-
-            # Create markdown file
-            md_content = f"""---
-name: "{name}"
-description: "{description}"
-tools: {json.dumps(tools)}
-skills: {json.dumps(skills)}
----
-
-{details}
-"""
-
-            md_file = self.agents_dir / f"{file_slug}.md"
-            with open(md_file, 'w') as f:
-                f.write(md_content)
-
-            # Use BaseDialog.close() with result
-            self.close(result=file_slug)
-
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to save: {e}")

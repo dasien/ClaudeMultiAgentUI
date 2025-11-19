@@ -1,5 +1,6 @@
 """
-Enhanced Task Details Dialog with skills usage display.
+Enhanced Task Details Dialog with workflow context display (v5.0).
+Shows workflow information from task metadata.
 """
 
 import tkinter as tk
@@ -13,16 +14,15 @@ from ..utils import TimeUtils
 
 
 class TaskDetailsDialog(BaseDialog):
-    """Enhanced dialog for viewing task details with skills usage."""
+    """Enhanced dialog for viewing task details with workflow context (v5.0)."""
 
     def __init__(self, parent, task, queue_interface):
         super().__init__(parent, "Task Details", 770, 800)
         self.task = task
         self.queue = queue_interface
-        self.root = parent  # Store root window for creating independent windows
+        self.root = parent
 
         self.build_ui()
-        # Don't call show() - details dialogs don't return results
 
     def build_ui(self):
         """Build the task details UI."""
@@ -48,20 +48,19 @@ class TaskDetailsDialog(BaseDialog):
         if self.queue.task_log_exists(self.task.id, self.task.source_file):
             ttk.Button(button_frame, text="📄 View Full Log", command=self.view_log).pack(side="left", padx=5)
 
-        expected = self.queue.get_expected_output_path(self.task.assigned_agent, self.task.source_file)
-        if expected:
-            output_path = self.queue.project_root / Path(expected).parent
-            if output_path.exists():
-                ttk.Button(
-                    button_frame,
-                    text="📁 Open Output Folder",
-                    command=lambda: self.open_folder(output_path)
-                ).pack(side="left", padx=5)
+        # Try to get output path
+        output_path = self._get_output_path()
+        if output_path and output_path.exists():
+            ttk.Button(
+                button_frame,
+                text="📁 Open Output Folder",
+                command=lambda: self.open_folder(output_path)
+            ).pack(side="left", padx=5)
 
         ttk.Button(button_frame, text="Close", command=self.dialog.destroy).pack(side="left", padx=5)
 
     def build_general_tab(self, parent):
-        """Build General Info tab with 2-column layout for cost."""
+        """Build General Info tab with workflow context."""
         scrollable_frame = ttk.Frame(parent, padding=20)
         scrollable_frame.pack(fill="both", expand=True)
 
@@ -75,6 +74,11 @@ class TaskDetailsDialog(BaseDialog):
 
         ttk.Separator(scrollable_frame, orient="horizontal").pack(fill="x", pady=10)
 
+        # WORKFLOW CONTEXT (NEW in v5.0)
+        workflow_name = self.task.metadata.get('workflow_name') if self.task.metadata else None
+        if workflow_name:
+            self._build_workflow_section(scrollable_frame, workflow_name)
+
         # Two-column layout for task info and cost
         columns_frame = ttk.Frame(scrollable_frame)
         columns_frame.pack(fill="x", pady=(0, 10))
@@ -83,7 +87,6 @@ class TaskDetailsDialog(BaseDialog):
         left_column = ttk.LabelFrame(columns_frame, text="TASK INFORMATION", padding=10)
         left_column.pack(side="left", fill="both", expand=True, padx=(0, 5))
 
-        # Using TimeUtils for runtime formatting!
         fields = [
             ("Title", self.task.title),
             ("Agent", self.task.assigned_agent),
@@ -107,7 +110,6 @@ class TaskDetailsDialog(BaseDialog):
         right_column = ttk.LabelFrame(columns_frame, text="COST INFORMATION", padding=10)
         right_column.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
-        # Extract cost data from metadata
         cost_data = self.get_cost_data()
 
         if cost_data:
@@ -179,20 +181,19 @@ class TaskDetailsDialog(BaseDialog):
             log_content = self.queue.get_task_log(self.task.id, self.task.source_file)
             if log_content:
                 skills_used_raw = self.queue.extract_skills_used(log_content)
-                # Normalize skill names for comparison (remove spaces, lowercase)
                 skills_used = [s.strip().lower() for s in skills_used_raw]
 
         if agent_skills:
             used_count = 0
             skills_data = self.queue.get_skills_list()
 
-            # First pass: count used skills
+            # Count used skills
             for skill_dir in agent_skills:
                 skill_dir_normalized = skill_dir.strip().lower()
                 if skill_dir_normalized in skills_used:
                     used_count += 1
 
-            # Display header with count
+            # Display header
             header_text = f"Agent Skills ({len(agent_skills)})"
             if used_count > 0:
                 header_text += f" - {used_count} Used"
@@ -203,7 +204,7 @@ class TaskDetailsDialog(BaseDialog):
                 font=('Arial', 9, 'bold')
             ).pack(anchor="w", pady=(0, 5))
 
-            # Second pass: display skills with indicators
+            # Display skills with indicators
             for skill_dir in agent_skills:
                 if skills_data:
                     skill_info = next(
@@ -214,12 +215,10 @@ class TaskDetailsDialog(BaseDialog):
                     if skill_info:
                         skill_name = skill_info.get('name', skill_dir)
 
-                        # Check if this skill was used (match by directory name, case-insensitive)
                         skill_dir_normalized = skill_dir.strip().lower()
                         was_used = skill_dir_normalized in skills_used
 
                         if was_used:
-                            # Show with green checkmark and "Used!" badge
                             ttk.Label(
                                 skills_frame,
                                 text=f"  ✓ {skill_name} (Used!)",
@@ -227,7 +226,6 @@ class TaskDetailsDialog(BaseDialog):
                                 foreground='green'
                             ).pack(anchor="w")
                         else:
-                            # Show as available but not used
                             ttk.Label(
                                 skills_frame,
                                 text=f"  • {skill_name}",
@@ -244,12 +242,97 @@ class TaskDetailsDialog(BaseDialog):
 
         return scrollable_frame
 
+    def _build_workflow_section(self, parent, workflow_name):
+        """Build workflow context section (NEW in v5.0)."""
+        workflow_frame = ttk.LabelFrame(parent, text="🔄 WORKFLOW CONTEXT", padding=10)
+        workflow_frame.pack(fill="x", pady=(0, 10))
+
+        # Get workflow details
+        workflow_step = self.task.metadata.get('workflow_step', 0)
+
+        # Load workflow template
+        workflow = self.queue.get_workflow_template(workflow_name)
+
+        if workflow:
+            # Workflow info
+            info_frame = ttk.Frame(workflow_frame)
+            info_frame.pack(fill="x", pady=(0, 5))
+
+            ttk.Label(
+                info_frame,
+                text=f"Workflow: {workflow.name}",
+                font=('Arial', 10, 'bold')
+            ).pack(side="left")
+
+            ttk.Label(
+                info_frame,
+                text=f"Step {workflow_step + 1} of {workflow.get_total_steps()}",
+                font=('Arial', 9),
+                foreground='blue'
+            ).pack(side="right")
+
+            # Current step details
+            current_step = workflow.get_step(workflow_step)
+            if current_step:
+                step_details_frame = ttk.Frame(workflow_frame)
+                step_details_frame.pack(fill="x", pady=(5, 5))
+
+                # Input pattern
+                ttk.Label(
+                    step_details_frame,
+                    text="Input:",
+                    font=('Arial', 9, 'bold'),
+                    width=15
+                ).grid(row=0, column=0, sticky="w")
+                ttk.Label(
+                    step_details_frame,
+                    text=current_step.input,
+                    font=('Arial', 9),
+                    foreground='gray'
+                ).grid(row=0, column=1, sticky="w")
+
+                # Expected output
+                ttk.Label(
+                    step_details_frame,
+                    text="Expected Output:",
+                    font=('Arial', 9, 'bold'),
+                    width=15
+                ).grid(row=1, column=0, sticky="w")
+                ttk.Label(
+                    step_details_frame,
+                    text=current_step.required_output,
+                    font=('Arial', 9),
+                    foreground='gray'
+                ).grid(row=1, column=1, sticky="w")
+
+                # Expected statuses
+                expected_statuses = current_step.get_expected_statuses()
+                if expected_statuses:
+                    ttk.Label(
+                        step_details_frame,
+                        text="Expected Statuses:",
+                        font=('Arial', 9, 'bold'),
+                        width=15
+                    ).grid(row=2, column=0, sticky="w")
+                    ttk.Label(
+                        step_details_frame,
+                        text=", ".join(expected_statuses),
+                        font=('Arial', 9),
+                        foreground='gray'
+                    ).grid(row=2, column=1, sticky="w")
+        else:
+            ttk.Label(
+                workflow_frame,
+                text=f"Workflow: {workflow_name} (template not found)",
+                font=('Arial', 10),
+                foreground='orange'
+            ).pack(anchor="w")
+
     def build_details_tab(self, parent):
         """Build Prompt tab."""
         scrollable_frame = ttk.Frame(parent, padding=20)
         scrollable_frame.pack(fill="both", expand=True)
 
-        # Prompt/Description - taking full space
         ttk.Label(scrollable_frame, text="Task Prompt:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
 
         desc_frame = ttk.Frame(scrollable_frame)
@@ -266,6 +349,34 @@ class TaskDetailsDialog(BaseDialog):
         desc_text.config(state=tk.DISABLED)
 
         return scrollable_frame
+
+    def _get_output_path(self) -> Path:
+        """Get output path for this task."""
+        # Try to get from workflow if available
+        if self.task.metadata:
+            workflow_name = self.task.metadata.get('workflow_name')
+            workflow_step = self.task.metadata.get('workflow_step')
+            enhancement_name = self.task.metadata.get('enhancement_title')
+
+            if workflow_name and workflow_step is not None and enhancement_name:
+                output_path_str = self.queue.get_step_output_path(
+                    workflow_name,
+                    workflow_step,
+                    enhancement_name,
+                    self.task.assigned_agent
+                )
+                if output_path_str:
+                    output_path = self.queue.project_root / Path(output_path_str).parent
+                    return output_path
+
+        # Fallback: try to extract from source file
+        source_path = Path(self.task.source_file)
+        if source_path.parts[0] == 'enhancements' and len(source_path.parts) >= 2:
+            enhancement_name = source_path.parts[1]
+            output_path = self.queue.project_root / "enhancements" / enhancement_name / self.task.assigned_agent
+            return output_path
+
+        return None
 
     def copy_id(self):
         """Copy task ID to clipboard."""
@@ -309,19 +420,14 @@ class TaskDetailsDialog(BaseDialog):
             messagebox.showinfo("No Log", "Log file not found")
             return
 
-        # Create log viewer window as child of task details dialog
+        # Create log viewer window
         log_window = tk.Toplevel(self.dialog)
         log_window.title(f"Task Log: {self.task.id}")
         log_window.geometry("1000x700")
 
-        # Set up proper modal behavior
         log_window.transient(self.dialog)
         log_window.grab_set()
-
-        # Bind Escape key to close
         log_window.bind('<Escape>', lambda e: log_window.destroy())
-
-        # Focus on window
         log_window.focus_set()
 
         # Header with search
@@ -375,17 +481,16 @@ class TaskDetailsDialog(BaseDialog):
         ttk.Button(button_frame, text="Close", command=log_window.destroy).pack(side="right")
 
     def get_cost_data(self):
-        """Extract cost data from task metadata and normalize to expected format."""
+        """Extract cost data from task metadata."""
         if not self.task.metadata or not isinstance(self.task.metadata, dict):
             return None
 
-        # Check for nested cost structure (future format)
+        # Check for nested cost structure
         cost_data = self.task.metadata.get('cost')
         if cost_data and isinstance(cost_data, dict):
             return cost_data
 
-        # Check for flat cost structure (current CMAT format)
-        # Convert CMAT's flat format to nested format for display
+        # Check for flat cost structure (CMAT format)
         if 'cost_usd' in self.task.metadata:
             try:
                 return {

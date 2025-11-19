@@ -1,10 +1,11 @@
 """
-Workflow State Viewer - Visualize active workflows and their progress.
+Workflow State Viewer - Visualize active workflows and their progress (v5.0).
+Now loads actual workflow templates from task metadata instead of hardcoded agents.
 """
 
 import tkinter as tk
 from tkinter import ttk
-from typing import Dict, List
+from typing import Dict, List, Optional
 from collections import defaultdict
 
 from .base_dialog import BaseDialog
@@ -12,16 +13,15 @@ from ..utils import TimeUtils
 
 
 class WorkflowStateViewer(BaseDialog):
-    """Dialog for visualizing workflow states and progress."""
+    """Dialog for visualizing workflow states and progress (v5.0)."""
 
     def __init__(self, parent, queue_interface):
-        super().__init__(parent, "Active Workflows", 750, 600)
+        super().__init__(parent, "Active Workflows", 850, 600)
         self.queue = queue_interface
         self.workflows = {}
 
         self.build_ui()
         self.load_workflows()
-        # Don't call show() - workflow viewer doesn't return a result
 
     def build_ui(self):
         """Build the workflow viewer UI."""
@@ -38,7 +38,7 @@ class WorkflowStateViewer(BaseDialog):
         self.workflows_frame = ttk.Frame(canvas, padding=20)
         canvas.create_window((0, 0), window=self.workflows_frame, anchor='nw')
 
-        # Bottom buttons - Using BaseDialog helper
+        # Bottom buttons
         button_frame = ttk.Frame(self.dialog)
         button_frame.pack(fill="x", pady=10)
 
@@ -53,21 +53,30 @@ class WorkflowStateViewer(BaseDialog):
         try:
             queue_state = self.queue.get_queue_state()
 
-            # Group tasks by enhancement
-            enhancement_tasks = defaultdict(list)
+            # Group tasks by (enhancement, workflow_name)
+            workflow_groups = defaultdict(list)
 
             for task in (queue_state.pending_tasks +
                          queue_state.active_workflows +
                          queue_state.completed_tasks[-20:]):
 
-                source = task.source_file
-                if source.startswith('enhancements/'):
-                    parts = source.split('/')
-                    if len(parts) >= 2:
-                        enhancement = parts[1]
-                        enhancement_tasks[enhancement].append(task)
+                # Check if task has workflow metadata
+                if task.metadata and task.metadata.get('workflow_name'):
+                    workflow_name = task.metadata['workflow_name']
+                    enhancement = task.metadata.get('enhancement_title', 'unknown')
+                    key = (enhancement, workflow_name)
+                    workflow_groups[key].append(task)
+                else:
+                    # Legacy: Group by enhancement from source file
+                    source = task.source_file
+                    if source.startswith('enhancements/'):
+                        parts = source.split('/')
+                        if len(parts) >= 2:
+                            enhancement = parts[1]
+                            key = (enhancement, None)  # No workflow name
+                            workflow_groups[key].append(task)
 
-            if not enhancement_tasks:
+            if not workflow_groups:
                 ttk.Label(
                     self.workflows_frame,
                     text="No active workflows found",
@@ -77,8 +86,8 @@ class WorkflowStateViewer(BaseDialog):
                 return
 
             # Display each workflow
-            for enhancement, tasks in sorted(enhancement_tasks.items()):
-                self.render_workflow(enhancement, tasks)
+            for (enhancement, workflow_name), tasks in sorted(workflow_groups.items()):
+                self.render_workflow(enhancement, workflow_name, tasks)
 
         except Exception as e:
             ttk.Label(
@@ -87,26 +96,51 @@ class WorkflowStateViewer(BaseDialog):
                 foreground='red'
             ).pack(pady=20)
 
-    def render_workflow(self, enhancement: str, tasks: List):
+    def render_workflow(self, enhancement: str, workflow_name: Optional[str], tasks: List):
         """Render a single workflow visualization."""
-        workflow_state = self.analyze_workflow_state(tasks)
-
         # Create workflow frame
+        title = f"Enhancement: {enhancement}"
+        if workflow_name:
+            title += f" | Workflow: {workflow_name}"
+
         workflow_frame = ttk.LabelFrame(
             self.workflows_frame,
-            text=f"Enhancement: {enhancement}",
+            text=title,
             padding=15
         )
         workflow_frame.pack(fill="x", pady=(0, 15))
 
+        # If we have workflow name, load template and show actual steps
+        if workflow_name:
+            template = self.queue.get_workflow_template(workflow_name)
+            if template:
+                self._render_template_workflow(workflow_frame, template, tasks)
+            else:
+                self._render_unknown_workflow(workflow_frame, tasks)
+        else:
+            # No workflow metadata - use legacy display
+            self._render_legacy_workflow(workflow_frame, tasks)
+
+    def _render_template_workflow(self, parent, template, tasks: List):
+        """Render workflow using actual template definition."""
         # Progress bar
-        progress_frame = ttk.Frame(workflow_frame)
+        progress_frame = ttk.Frame(parent)
         progress_frame.pack(fill="x", pady=(0, 10))
 
-        progress_pct = workflow_state['progress_percent']
+        # Calculate progress based on actual steps
+        completed_steps = 0
+        total_steps = len(template.steps)
+
+        for step in template.steps:
+            step_tasks = [t for t in tasks if t.assigned_agent == step.agent]
+            if step_tasks and step_tasks[-1].status == 'completed':
+                completed_steps += 1
+
+        progress_pct = int((completed_steps / total_steps) * 100) if total_steps > 0 else 0
+
         ttk.Label(
             progress_frame,
-            text=f"{progress_pct}% complete",
+            text=f"{progress_pct}% complete ({completed_steps}/{total_steps} steps)",
             font=('Arial', 10, 'bold')
         ).pack(side="left")
 
@@ -118,8 +152,142 @@ class WorkflowStateViewer(BaseDialog):
         )
         progress_bar.pack(side="right", fill="x", expand=True, padx=(10, 0))
 
-        # Workflow steps
-        steps_frame = ttk.Frame(workflow_frame)
+        # Workflow steps (actual from template)
+        steps_frame = ttk.Frame(parent)
+        steps_frame.pack(fill="x", pady=(10, 0))
+
+        agents_map = self.queue.get_agent_list()
+
+        for idx, step in enumerate(template.steps):
+            agent_key = step.agent
+            agent_name = agents_map.get(agent_key, agent_key)
+
+            # Find tasks for this agent
+            agent_tasks = [t for t in tasks if t.assigned_agent == agent_key]
+
+            # Determine state
+            if not agent_tasks:
+                step_state = 'not_started'
+            else:
+                latest = agent_tasks[-1]
+                if latest.status == 'completed':
+                    step_state = 'completed'
+                elif latest.status == 'active':
+                    step_state = 'active'
+                elif latest.status == 'failed':
+                    step_state = 'failed'
+                else:
+                    step_state = 'pending'
+
+            # Render step
+            step_frame = ttk.Frame(steps_frame)
+            step_frame.pack(anchor="w", pady=2)
+
+            # Status icon
+            if step_state == 'completed':
+                icon, color = "✓", 'green'
+            elif step_state == 'active':
+                icon, color = "→", 'orange'
+            elif step_state == 'failed':
+                icon, color = "✗", 'red'
+            elif step_state == 'pending':
+                icon, color = "○", 'blue'
+            else:
+                icon, color = " ", 'gray'
+
+            ttk.Label(
+                step_frame,
+                text=icon,
+                font=('Arial', 12, 'bold'),
+                foreground=color,
+                width=2
+            ).pack(side="left")
+
+            ttk.Label(
+                step_frame,
+                text=f"Step {idx + 1}: {agent_name}",
+                font=('Arial', 10)
+            ).pack(side="left", padx=(5, 0))
+
+            # Show task info if exists
+            if agent_tasks:
+                latest = agent_tasks[-1]
+                runtime_str = TimeUtils.format_runtime(latest.runtime_seconds)
+                info = f"({latest.status}"
+                if runtime_str:
+                    info += f", {runtime_str}"
+                info += ")"
+
+                ttk.Label(
+                    step_frame,
+                    text=info,
+                    font=('Arial', 9),
+                    foreground='gray'
+                ).pack(side="left", padx=(5, 0))
+
+            # Show expected output
+            ttk.Label(
+                step_frame,
+                text=f"→ {step.required_output}",
+                font=('Arial', 8),
+                foreground='blue'
+            ).pack(side="left", padx=(10, 0))
+
+        # Current status
+        status_frame = ttk.Frame(parent)
+        status_frame.pack(fill="x", pady=(10, 0))
+
+        status_info = self._determine_workflow_status(template, tasks)
+
+        ttk.Label(
+            status_frame,
+            text="Status:",
+            font=('Arial', 9, 'bold')
+        ).pack(side="left")
+
+        ttk.Label(
+            status_frame,
+            text=status_info['status_text'],
+            font=('Arial', 9),
+            foreground=status_info['status_color']
+        ).pack(side="left", padx=(5, 0))
+
+        # Show next step if applicable
+        if status_info['next_step_index'] is not None:
+            next_step = template.steps[status_info['next_step_index']]
+            next_name = agents_map.get(next_step.agent, next_step.agent)
+            ttk.Label(
+                status_frame,
+                text=f"→ Next: {next_name}",
+                font=('Arial', 9),
+                foreground='blue'
+            ).pack(side="left", padx=(20, 0))
+
+    def _render_legacy_workflow(self, parent, tasks: List):
+        """Render workflow using legacy hardcoded agents (for tasks without workflow metadata)."""
+        workflow_state = self.analyze_legacy_workflow_state(tasks)
+
+        # Progress bar
+        progress_frame = ttk.Frame(parent)
+        progress_frame.pack(fill="x", pady=(0, 10))
+
+        progress_pct = workflow_state['progress_percent']
+        ttk.Label(
+            progress_frame,
+            text=f"{progress_pct}% complete (legacy workflow)",
+            font=('Arial', 10, 'bold')
+        ).pack(side="left")
+
+        progress_bar = ttk.Progressbar(
+            progress_frame,
+            length=400,
+            mode='determinate',
+            value=progress_pct
+        )
+        progress_bar.pack(side="right", fill="x", expand=True, padx=(10, 0))
+
+        # Standard agents (hardcoded for legacy)
+        steps_frame = ttk.Frame(parent)
         steps_frame.pack(fill="x", pady=(10, 0))
 
         standard_agents = [
@@ -130,7 +298,7 @@ class WorkflowStateViewer(BaseDialog):
             'documenter'
         ]
 
-        for i, agent in enumerate(standard_agents):
+        for agent in standard_agents:
             step_state = workflow_state['agents'].get(agent, 'not_started')
 
             step_frame = ttk.Frame(steps_frame)
@@ -163,7 +331,7 @@ class WorkflowStateViewer(BaseDialog):
                 font=('Arial', 10)
             ).pack(side="left", padx=(5, 0))
 
-            # Show task info if exists - Using TimeUtils!
+            # Show task info
             agent_tasks = [t for t in tasks if t.assigned_agent == agent]
             if agent_tasks:
                 latest = agent_tasks[-1]
@@ -180,38 +348,103 @@ class WorkflowStateViewer(BaseDialog):
                     foreground='gray'
                 ).pack(side="left", padx=(5, 0))
 
-        # Current status
-        status_frame = ttk.Frame(workflow_frame)
-        status_frame.pack(fill="x", pady=(10, 0))
-
+    def _render_unknown_workflow(self, parent, tasks: List):
+        """Render workflow when template not found."""
         ttk.Label(
-            status_frame,
-            text="Status:",
-            font=('Arial', 9, 'bold')
-        ).pack(side="left")
-
-        ttk.Label(
-            status_frame,
-            text=workflow_state['status_text'],
+            parent,
+            text="⚠ Workflow template not found - showing task list only",
             font=('Arial', 9),
-            foreground=workflow_state['status_color']
-        ).pack(side="left", padx=(5, 0))
+            foreground='orange'
+        ).pack(anchor="w", pady=(0, 10))
 
-        # Show next agent if applicable
-        if workflow_state['next_agent']:
-            next_name = self.queue.get_agent_list().get(
-                workflow_state['next_agent'],
-                workflow_state['next_agent']
-            )
+        # Just list the tasks
+        for task in sorted(tasks, key=lambda t: t.created):
+            task_frame = ttk.Frame(parent)
+            task_frame.pack(anchor="w", pady=2)
+
+            status_icon = {
+                'completed': '✓',
+                'active': '→',
+                'failed': '✗',
+                'pending': '○'
+            }.get(task.status, '?')
+
+            status_color = {
+                'completed': 'green',
+                'active': 'orange',
+                'failed': 'red',
+                'pending': 'blue'
+            }.get(task.status, 'gray')
+
             ttk.Label(
-                status_frame,
-                text=f"→ Next: {next_name}",
-                font=('Arial', 9),
-                foreground='blue'
-            ).pack(side="left", padx=(20, 0))
+                task_frame,
+                text=status_icon,
+                font=('Arial', 12, 'bold'),
+                foreground=status_color,
+                width=2
+            ).pack(side="left")
 
-    def analyze_workflow_state(self, tasks: List) -> Dict:
-        """Analyze workflow state from tasks."""
+            ttk.Label(
+                task_frame,
+                text=f"{task.assigned_agent}: {task.title}",
+                font=('Arial', 10)
+            ).pack(side="left", padx=(5, 0))
+
+    def _determine_workflow_status(self, template, tasks: List) -> Dict:
+        """Determine current workflow status using template."""
+        # Build agent state map
+        agent_states = {}
+        for step in template.steps:
+            agent_tasks = [t for t in tasks if t.assigned_agent == step.agent]
+
+            if not agent_tasks:
+                agent_states[step.agent] = 'not_started'
+            else:
+                latest = agent_tasks[-1]
+                agent_states[step.agent] = latest.status
+
+        # Find current position
+        current_step_index = None
+        next_step_index = None
+
+        for idx, step in enumerate(template.steps):
+            state = agent_states.get(step.agent, 'not_started')
+
+            if state == 'active':
+                current_step_index = idx
+                break
+            elif state in ['pending', 'not_started']:
+                next_step_index = idx
+                break
+
+        # Determine status
+        if any(agent_states.get(s.agent) == 'failed' for s in template.steps):
+            status_text = "BLOCKED - Failed task"
+            status_color = 'red'
+        elif current_step_index is not None:
+            step = template.steps[current_step_index]
+            agent_name = self.queue.get_agent_list().get(step.agent, step.agent)
+            status_text = f"IN PROGRESS - {agent_name}"
+            status_color = 'orange'
+        elif all(agent_states.get(s.agent) == 'completed' for s in template.steps):
+            status_text = "COMPLETE"
+            status_color = 'green'
+        elif next_step_index is not None:
+            status_text = "WAITING"
+            status_color = 'blue'
+        else:
+            status_text = "READY"
+            status_color = 'blue'
+
+        return {
+            'status_text': status_text,
+            'status_color': status_color,
+            'current_step_index': current_step_index,
+            'next_step_index': next_step_index
+        }
+
+    def analyze_legacy_workflow_state(self, tasks: List) -> Dict:
+        """Analyze workflow state using legacy hardcoded agents."""
         agent_states = {}
 
         standard_agents = [

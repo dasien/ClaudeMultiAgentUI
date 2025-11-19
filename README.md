@@ -1,33 +1,37 @@
 # Multi-Agent Task Queue Manager
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT).
+A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v5.0.
 
-I created this tool as a way to make the creation and management of CMAT based projects easier.  Rather than using the 
-cmat.sh script directly, I wanted to have a GUI that would allow users to create tasks, manage agents (and their skills), and create enhancements for a user's project.
+I created this tool to make the creation and management of CMAT-based projects easier. Rather than using the cmat.sh script directly, users can leverage a comprehensive GUI to create tasks, manage agents with their skills, configure workflow templates, and generate enhancements for their projects.
 
-Once installed and connected to a CMAT project, the first thing a user might do is create an 'enhancement.'  This is a well-structured specification file that includes the user story, requirements, constraints, and acceptance criteria.  The user can then use this file to create a task in the queue.
-With the task created, the user can start the task and a series of agents will work on the task.  The user can monitor the progress of the task in the task viewer (the main screen).
-As each agent completes its work, it will output a log file and documentation according to agent's role and workflow.
-
+Once installed and connected to a CMAT project, users can create 'enhancements' - well-structured specification files that include user stories, requirements, constraints, and acceptance criteria. These enhancements can then be processed through customizable multi-agent workflows, with each agent contributing its expertise to deliver comprehensive results.
 
 ## Features
 
 ### Core Features
 - 📋 **Task Management** - Create, start, cancel, and monitor tasks
-- 🎭 **Agent Management** - Create, edit, and delete agents with visual skills assignment
+- 🎭 **Agent Management** - Create and edit agents with visual skills assignment (simplified in v5.0)
 - 🎯 **Skills Management** - Browse skills, view agent skills, preview skills prompts
 - 📝 **Enhancement Generator** - AI-assisted creation of enhancement specification files
 - 🤖 **AI-Powered Generation** - Generate task descriptions and enhancement specs using Claude API
-- 🔄 **Workflow Visualization** - View active workflows and their progress
-- 📋 **Workflow Template Management** - Create and manage reusable workflow templates
+- 📋 **Workflow Template Management** - Create and manage reusable workflow templates with visual editors
+- 🚀 **Workflow Launcher** - Quick workflow launcher with pre-flight validation
 - 🔗 **Integration Dashboard** - Monitor GitHub/Jira/Confluence sync status
 - ⚙️ **Advanced Settings** - Configure Claude model, API key, and token limits
 - 🎯 **Multi-Project Support** - Connect to different CMAT projects
 - 🚀 **Zero External Dependencies** - Uses only Python standard library
+
+### v5.0 Features
+- 🔧 **Modular Workflow Architecture** - Agents are now reusable components, workflows define orchestration
+- ⚡ **Visual Workflow Template Editor** - Configure input patterns, output files, and status transitions through UI
+- 🎨 **Transition Management** - Visually manage what happens when agents output specific status codes
+- 📊 **Dynamic Workflow Loading** - Task creation automatically loads all user-defined workflows
+- 🔍 **Workflow Context Display** - Tasks show their position in workflows with expected inputs/outputs
+- ✅ **Real-time Workflow Validation** - Validates workflows before starting with clear feedback
 
 ## Screenshots
 
@@ -37,12 +41,12 @@ The main window shows all tasks across all statuses (pending, active, completed,
 ![Main Window](assets/docs_img_main.png)
 
 ### Create Task
-Create new tasks with AI-powered description generation, agent selection, and automated workflow options.
+Create new tasks with AI-powered description generation, agent selection, and automated workflow options. Now includes dynamic workflow loading from templates.
 
 ![Create Task Dialog](assets/docs_img_create_task.png)
 
 ### Task Details
-Double-click any task to view complete details including description, timestamps, and access to logs.
+Double-click any task to view complete details including description, timestamps, workflow context, and access to logs.
 
 ![Task Details](assets/docs_img_task_details.png)
 
@@ -50,7 +54,7 @@ Double-click any task to view complete details including description, timestamps
 
 - Python 3.7 or higher
 - Tkinter (included with Python)
-- A project using the Claude Multi-Agent Development Template  (can be installed directly or connected to an existing project)
+- A project using the Claude Multi-Agent Development Template v5.0+ (can be installed directly or connected to an existing project)
 - Claude API key (optional, for AI-powered features)
 
 ## Installation
@@ -83,7 +87,7 @@ python3 -m src.main
 
 You can either connect to an existing CMAT project or install to your project.
 
-#### Option A: Install CMAT Template (NEW!)
+#### Option A: Install CMAT Template
 
 If you don't have a CMAT project yet, you can install one directly:
 
@@ -104,32 +108,76 @@ The installer:
 
 If you already have a CMAT project:
 
-1. Click **File > Connect...**
+1. Click **File > Connect...** (or press `Ctrl+O`)
 2. Click **Browse...**
 3. Navigate to your CMAT project root directory
 4. Select the project root (containing `.claude/` folder)
-5. The UI will validate the  project structure
+5. The UI will validate the project structure
 6. Click **Connect**
 
 The validation checks for:
 - ✓ CMAT script (`.claude/scripts/cmat.sh`)
 - ✓ Task queue (`.claude/queues/task_queue.json`)
-- ✓ Agent contracts (`.claude/AGENT_CONTRACTS.json`)
+- ✓ Workflow templates (`.claude/queues/workflow_templates.json`)
 - ✓ Skills system (`.claude/skills/skills.json`)
 - ✓ Agents (`.claude/agents/agents.json`)
 
 ### 3. Configure Claude API (Optional but Recommended)
 
-For AI-powered features (enhancement generation, task descriptions, agent role definitions):
+For AI-powered features (highly recommended):
 
-1. Click **Settings > Claude Settings**
-2. Enter your Claude API key (get one at console.anthropic.com)
-3. Choose your preferred model
-4. Set max tokens (defaults to model maximum)
-5. Click **Save Settings**
+1. Get a Claude API key from [console.anthropic.com](https://console.anthropic.com)
+2. Click **Settings > Claude Settings**
+3. Enter your API key
+4. Choose model (default: **Claude Sonnet 4.5** - recommended)
+5. Set max tokens (default: 8192 - fine for most tasks)
+6. Click **Save Settings**
+
+You can now use:
+- **Generate with Claude** in task creation
+- **Enhancement Generator** for creating specs
+- **Agent instructions generation** when creating agents
 
 See the [User Guide](USER_GUIDE.md) for more detailed instructions on system operation.
 
+## What's New in v5.0
+
+### Architecture Changes
+
+**v4.x**: Agents defined their own orchestration (inputs, outputs, next agents)
+**v5.0**: Workflows define orchestration, agents are reusable components
+
+### Key Benefits
+
+- **Agent Reusability** - Same agent can work in multiple workflows with different configurations
+- **Flexible Workflows** - Change workflow orchestration without modifying agents
+- **Visual Workflow Editing** - Configure input patterns, outputs, and transitions through UI
+- **Dynamic Workflow Loading** - Create custom workflows and they appear everywhere automatically
+
+### New Features
+
+1. **Workflow Template Editor** - Full visual editor for creating/editing workflows
+   - Configure input patterns with placeholders
+   - Set required output filenames
+   - Manage status transitions visually
+   - Validate workflows before saving
+
+2. **Workflow Starter Dialog** - Quick launcher for starting workflows
+   - Select workflow template
+   - Choose or create enhancement spec
+   - Pre-flight validation checks
+   - One-click start
+
+3. **Simplified Agent Management** - Agents are now just capabilities
+   - No workflow orchestration in agent definition
+   - Focus on tools and skills
+   - Workflow behavior configured separately
+
+4. **Enhanced Task Details** - Shows workflow context
+   - Current step in workflow
+   - Expected inputs/outputs
+   - Expected status codes
+   - Workflow name and position
 
 ## Configuration
 
@@ -150,6 +198,7 @@ Configure via **Settings > Claude Settings**:
 - **API Key** - Your Claude API key from console.anthropic.com
 - **Model** - Choose from Opus 4, Sonnet 4.5, Sonnet 4, or Haiku 4
 - **Max Tokens** - Output token limit (defaults to model maximum)
+- **Timeout** - Request timeout in seconds (default: 90)
 
 Settings are persisted to `~/.claude_queue_ui/settings.json`
 
@@ -165,8 +214,9 @@ ClaudeMultiAgentUI/
 │   ├── utils/                     # Utility modules
 │   │   ├── __init__.py
 │   │   ├── claude_api_client.py   # Centralized API client
-│   │   ├── cmat_interface.py      # CMAT interface
+│   │   ├── cmat_interface.py      # CMAT interface (v5.0)
 │   │   ├── cmat_installer.py      # CMAT template installer
+│   │   ├── workflow_migration_utils.py  # v4.x → v5.0 migration tools
 │   │   ├── text_utils.py          # Slug conversion, validation
 │   │   ├── path_utils.py          # Path utilities
 │   │   └── time_utils.py          # Time formatting
@@ -174,6 +224,7 @@ ClaudeMultiAgentUI/
 │   │   ├── __init__.py
 │   │   ├── task.py
 │   │   ├── agent.py
+│   │   ├── workflow_template.py   # v5.0 workflow models
 │   │   ├── queue_state.py
 │   │   └── ...
 │   └── dialogs/                   # Dialog windows
@@ -182,16 +233,25 @@ ClaudeMultiAgentUI/
 │       ├── mixins/                # Dialog mixins
 │       │   ├── __init__.py
 │       │   └── claude_generator_mixin.py
-│       ├── connect_dialog.py
-│       ├── create_task_enhanced.py
-│       ├── enhancement_generator_dialog.py
-│       ├── claude_settings_dialog.py
-│       ├── claude_working_dialog.py
+│       ├── connect.py
+│       ├── task_create.py         # v5.0 - dynamic workflows
+│       ├── task_details.py        # v5.0 - workflow context
+│       ├── agent_details.py       # v5.0 - simplified
+│       ├── enhancement_create.py
+│       ├── workflow_template_manager.py
+│       ├── workflow_template_editor.py  # v5.0 - full visual editor
+│       ├── workflow_step_editor.py      # v5.0 - NEW
+│       ├── workflow_transition_manager.py  # v5.0 - NEW
+│       ├── workflow_starter.py          # v5.0 - NEW
+│       ├── workflow_viewer.py           # v5.0 - uses templates
+│       ├── claude_settings.py
+│       ├── working.py
 │       └── ...
 ├── tests/                         # Unit tests
 ├── assets/                        # Images, icons
 ├── README.md
 ├── QUICKSTART.md
+├── USER_GUIDE.md
 ├── requirements.txt
 ├── setup.py
 └── LICENSE
@@ -209,81 +269,225 @@ The UI supports managing multiple CMAT projects:
 
 The last connection is saved and auto-reconnects on launch.
 
+## Workflow Management (v5.0)
+
+### Creating Workflow Templates
+
+Workflows define how agents work together to process enhancements:
+
+1. **Workflows > Manage Templates...** → "Create New Template"
+2. Enter template name and description
+3. Add steps:
+   - Select agent for each step
+   - Configure input pattern (where step reads from)
+   - Set output filename (what step creates)
+   - Manage transitions (what happens on each status)
+4. Save template
+
+### Starting Workflows
+
+Two methods to start workflows:
+
+**Method 1: Workflow Starter (Recommended)**
+1. **Workflows > Start Workflow...** (`Ctrl+Shift+W`)
+2. Select workflow template from dropdown
+3. Choose existing enhancement or create new one
+4. Pre-flight checks validate everything
+5. Click **Start Workflow**
+
+**Method 2: Quick Start in Task Create**
+1. **Tasks > Create Task...** (`Ctrl+N`)
+2. Select workflow from dropdown (loads dynamically)
+3. First agent and settings pre-filled
+4. Enter details and create
+
+### Monitoring Workflows
+
+**Workflows > View Active Workflows...** (`Ctrl+W`)
+
+- See real-time progress of all workflows
+- Progress bars show completion percentage
+- Agent status indicators (✓ completed, → active, ○ pending)
+- Uses actual workflow templates (not hardcoded)
+- Works with custom workflows of any length
+
 ## Troubleshooting
 
-### "CMAT script not found"
-- Ensure you're selecting the project root directory
-- Path should contain: `.claude/scripts/cmat.sh`
-- This is a CMAT project structure
+### Connection Issues
 
-### "Not a valid CMAT project"
-- Check that `.claude/scripts/cmat.sh` exists
-- Verify `.claude/AGENT_CONTRACTS.json` exists
-- Verify `.claude/skills/skills.json` exists
-- If you have v2.0 or earlier, upgrade your template first
+#### "Not a valid CMAT project"
 
-### Tasks not showing
-- Click **Refresh** or press `F5`
-- Check connection status in header bar
-- Enable auto-refresh: **Settings > Auto Refresh Task List**
+**Cause**: Directory structure doesn't match CMAT v5.0 requirements.
 
-### Agent not starting
-- Starting a task launches the agent via `cmat.sh` in background
-- Task shows "Active" status immediately
-- Agent execution may take several minutes
-- Task status updates automatically when complete
-- Check the operations log (`Ctrl+L`) for errors
+**Solutions**:
+1. Verify you're selecting **project root**, not `.claude/` directory
+2. Check that `.claude/scripts/cmat.sh` exists
+3. Check that `.claude/queues/workflow_templates.json` exists
+4. Run `ls -la .claude/` to verify structure
+5. If v4.x or earlier, workflows will load but may need updating
 
-### "Generate with Claude" not working
-- Configure API key: **Settings > Claude Settings**
-- Get API key from: console.anthropic.com
-- Check internet connection
-- Verify API key is valid
+#### "CMAT script not found"
 
-### Enhancement Generator timeout
-- Long enhancements may take 30-60 seconds
-- Opus 4 is slower but generates longer content
-- Sonnet 4.5 is faster for most tasks
-- Watch the working animation - it's still processing!
+**Cause**: Path to `cmat.sh` is invalid.
 
-### Agent Personas
+**Solutions**:
+1. Use File > Connect... to browse for project
+2. Don't manually edit connection path
+3. Verify `cmat.sh` has execute permissions: `chmod +x .claude/scripts/cmat.sh`
 
-When creating agents, use quick select personas:
-- Analyst
-- Architect  
-- Developer
-- Tester
-- Documenter
+### Task Issues
 
-Each persona pre-selects appropriate tools.
+#### Tasks not showing
 
-### Skills Assignment
+**Solutions**:
+1. Click **Refresh** or press `F5`
+2. Check connection status in header
+3. Verify queue file exists: `.claude/queues/task_queue.json`
+4. Enable auto-refresh: Settings > Auto Refresh Task List
 
-Assign skills to agents for specialized capabilities:
-- Filter skills by category
-- Preview skills prompt before assigning
-- See which agents use each skill
-- Skills are automatically included in agent prompts
+#### Cannot start task
 
-## API Integration
+**Symptoms**: Start task option grayed out.
 
-### Claude API Features
+**Solutions**:
+1. Task must be in "Pending" status
+2. Active tasks cannot be restarted
+3. Cancel task first, then recreate if needed
 
-With Claude API configured, you can:
+#### Task stuck in "Active"
 
-1. **Generate Enhancement Specs** - Create detailed enhancement files from brief descriptions
-2. **Generate Task Descriptions** - Create comprehensive task descriptions from title and source file
-3. **Generate Agent Roles** - Create agent role definitions from name and description
+**Cause**: Agent execution failed without updating status.
 
-All features use configurable model and token settings.
+**Solutions**:
+1. Check task log for errors
+2. Cancel task
+3. Fix issue in source file
+4. Create new task
 
-### Cost Management
+### Workflow Issues (v5.0)
 
-Control API costs via **Settings > Claude Settings**:
-- Choose faster/cheaper models (Haiku 4) for simple tasks
-- Choose more capable models (Opus 4) for complex enhancements
-- Adjust max tokens to limit response length
-- Default: Sonnet 4.5 with 8K tokens (good balance)
+#### Workflow not in dropdown
+
+**Cause**: Workflow template not saved properly.
+
+**Solutions**:
+1. **Workflows > Manage Templates...**
+2. Verify template exists in list
+3. Edit template and save
+4. Refresh task creation dialog
+
+#### Step transitions not working
+
+**Cause**: Status transitions not configured.
+
+**Solutions**:
+1. Edit workflow template
+2. Edit the step that's not chaining
+3. Click "Manage Transitions"
+4. Add transition for the status code agent outputs
+5. Save changes
+
+#### Workflow validation errors
+
+**Solutions**:
+1. Edit workflow template
+2. Click "Validate Workflow"
+3. Review error messages
+4. Fix missing input/output configurations
+5. Ensure transition targets exist
+
+### AI Generation Issues
+
+#### "No API Key" error
+
+**Cause**: Claude API key not configured.
+
+**Solutions**:
+1. Menu: Settings > Claude Settings
+2. Enter API key from console.anthropic.com
+3. Save settings
+4. Try generation again
+
+#### Generation timeout
+
+**Cause**: Complex request taking too long.
+
+**Solutions**:
+1. Settings > Claude Settings
+2. Increase timeout (try 120-180 seconds)
+3. Switch to faster model (Sonnet 4.5 or Haiku 4)
+4. Simplify input (shorter description, fewer reference files)
+
+#### Poor quality generation
+
+**Solutions**:
+1. Use Claude Opus 4 for complex tasks
+2. Provide more detailed description
+3. Add relevant reference files
+4. Regenerate with different wording
+
+### Skills Issues
+
+#### Skills not showing for agent
+
+**Cause**: Agent has no skills assigned.
+
+**Solutions**:
+1. Agents > Manage Agents...
+2. Edit agent
+3. Go to Skills tab
+4. Assign skills
+5. Save agent
+
+#### "Skills system not available"
+
+**Cause**: Missing `skills.json` file.
+
+**Solutions**:
+1. Verify file exists: `.claude/skills/skills.json`
+2. If missing, reinstall CMAT template
+3. Check file permissions
+
+### Performance Issues
+
+#### UI freezing during generation
+
+**Cause**: Long-running API call.
+
+**This is normal**:
+- Complex enhancements take 30-60 seconds
+- Watch working animation to confirm it's processing
+- Don't close window, wait for completion
+
+#### Slow refresh
+
+**Solutions**:
+1. Disable auto-refresh if not needed
+2. Close other resource-intensive applications
+3. Reduce number of active tasks
+4. Clear finished tasks: Tasks > Clear Finished...
+
+### Installation Issues
+
+#### Download timeout
+
+**Cause**: Network slow or GitHub unavailable.
+
+**Solutions**:
+1. Check internet connection
+2. Try again later
+3. Use VPN if GitHub blocked
+4. Download template manually from GitHub
+
+#### Permission denied during install
+
+**Cause**: No write access to target directory.
+
+**Solutions**:
+1. Choose directory you own
+2. Check directory permissions
+3. Don't install to system directories
+4. Try different location
 
 ## Contributing
 
@@ -301,7 +505,7 @@ MIT License - see LICENSE file for details
 
 ## Related Projects
 
-- [Claude Multi-Agent Template ](https://github.com/dasien/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
+- [Claude Multi-Agent Template](https://github.com/dasien/ClaudeMultiAgentTemplate) - The multi-agent system this UI manages
 
 ---
 

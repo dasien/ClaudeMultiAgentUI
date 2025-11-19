@@ -1,5 +1,6 @@
 """
-Enhanced Create Task Dialog with skills preview and quick workflows.
+Enhanced Create Task Dialog with skills preview and quick workflows (v5.0).
+Updated validation to work without agent contracts.
 """
 
 import tkinter as tk
@@ -12,7 +13,7 @@ from ..utils import PathUtils
 
 
 class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
-    """Enhanced dialog for creating tasks with skills preview and quick workflows."""
+    """Enhanced dialog for creating tasks (v5.0)."""
 
     def __init__(self, parent, queue_interface, settings=None):
         # Initialize base classes
@@ -49,18 +50,13 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         workflow_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ttk.Label(workflow_col, text="Quick Start Workflow (optional):").pack(anchor="w")
         self.workflow_var = tk.StringVar()
-        workflow_combo = ttk.Combobox(workflow_col, textvariable=self.workflow_var, state='readonly', width=25)
-        workflows = [
-            "(none)",
-            "📋 Full Feature",
-            "🐛 Bug Fix",
-            "🔥 Hotfix",
-            "🔧 Refactoring"
-        ]
-        workflow_combo['values'] = workflows
-        workflow_combo.current(0)
-        workflow_combo.pack(fill="x")
-        workflow_combo.bind('<<ComboboxSelected>>', self.on_workflow_selected)
+        self.workflow_combo = ttk.Combobox(workflow_col, textvariable=self.workflow_var, state='readonly', width=25)
+
+        # Load workflows from templates dynamically
+        self.load_workflow_list()
+
+        self.workflow_combo.pack(fill="x")
+        self.workflow_combo.bind('<<ComboboxSelected>>', self.on_workflow_selected)
 
         # Agent
         agent_col = ttk.Frame(workflow_agent_frame)
@@ -86,14 +82,13 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         )
         self.skills_list_label.pack(anchor="w")
 
-        ttk.Button(
+        self.preview_btn = ttk.Button(
             self.skills_frame,
             text="Preview Full Skills Prompt",
             command=self.preview_skills_prompt,
             state=tk.DISABLED
-        ).pack(anchor="w", pady=(5, 0))
-
-        self.preview_btn = None
+        )
+        self.preview_btn.pack(anchor="w", pady=(5, 0))
 
         # Priority and Task Type on same line
         priority_type_frame = ttk.Frame(main_frame)
@@ -161,14 +156,60 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
             variable=self.auto_chain_var
         ).pack(anchor="w")
 
-        # Buttons - Using BaseDialog helper
+        # Buttons
         self.create_button_frame(main_frame, [
             ("Create Task", self.create_task),
             ("Create & Start", self.create_and_start),
             ("Cancel", self.cancel)
         ])
 
-    def on_show(self):
+    def load_workflow_list(self):
+        """Load workflows dynamically from workflow_templates.json."""
+        try:
+            workflows = self.queue.get_workflow_templates()
+
+            # Build dropdown values - (none) first, then all workflows
+            workflow_values = ["(none)"]
+
+            # Map for looking up template by display name
+            self.workflow_template_map = {}
+
+            for template in workflows:
+                # Create display name with icon based on template name
+                display_name = self._get_workflow_display_name(template)
+                workflow_values.append(display_name)
+                self.workflow_template_map[display_name] = template
+
+            self.workflow_combo['values'] = workflow_values
+            self.workflow_combo.current(0)
+
+        except Exception as e:
+            print(f"Warning: Could not load workflows: {e}")
+            # Fallback to empty list
+            self.workflow_combo['values'] = ["(none)"]
+            self.workflow_combo.current(0)
+
+    def _get_workflow_display_name(self, template) -> str:
+        """Get display name for workflow with appropriate icon."""
+        # Try to match common workflow types and add icons
+        name_lower = template.name.lower()
+
+        if 'feature' in name_lower or 'development' in name_lower:
+            icon = "📋"
+        elif 'bug' in name_lower and 'hot' not in name_lower:
+            icon = "🐛"
+        elif 'hotfix' in name_lower or 'emergency' in name_lower:
+            icon = "🔥"
+        elif 'refactor' in name_lower or 'optimization' in name_lower:
+            icon = "🔧"
+        elif 'doc' in name_lower:
+            icon = "📝"
+        elif 'performance' in name_lower:
+            icon = "⚡"
+        else:
+            icon = "🔄"
+
+        return f"{icon} {template.name}"
         """Called after dialog shown - set initial focus and trigger agent selection."""
         self.set_focus(self.title_entry)
 
@@ -277,68 +318,96 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
 
     def on_workflow_selected(self, event=None):
         """Handle workflow selection from dropdown."""
-        workflow = self.workflow_var.get()
+        workflow_display = self.workflow_var.get()
 
-        if workflow == "(none)":
+        if workflow_display == "(none)":
             return
 
-        # Map workflow names to agent and settings
-        workflow_map = {
-            "📋 Full Feature": ("requirements-analyst", "Complete development workflow", "high"),
-            "🐛 Bug Fix": ("requirements-analyst", "Bug fix (skip documentation)", "high"),
-            "🔥 Hotfix": ("implementer", "Emergency fix (skip analysis)", "critical"),
-            "🔧 Refactoring": ("architect", "Code improvement (skip requirements)", "normal")
-        }
+        # Get template from map
+        template = self.workflow_template_map.get(workflow_display)
+        if not template:
+            return
 
-        if workflow in workflow_map:
-            agent, description, priority = workflow_map[workflow]
-            self.quick_start_workflow(agent, description, priority)
+        # Get first step of workflow
+        if template.steps:
+            first_step = template.steps[0]
+            agent = first_step.agent
 
-    def quick_start_workflow(self, agent: str, description: str, priority: str):
-        """Quick start a workflow with pre-filled values."""
-        agent_name = self.agents_map.get(agent, agent)
-        self.agent_var.set(agent_name)
-        self.on_agent_selected()
+            # Set agent
+            agent_name = self.agents_map.get(agent, agent)
+            self.agent_var.set(agent_name)
+            self.on_agent_selected()
 
-        self.priority_var.set(priority)
+            # Set task type based on agent role
+            agent_role = self.queue.get_agent_role(agent)
+            if agent_role:
+                role_to_type = {
+                    'analysis': 'analysis',
+                    'technical_design': 'technical_analysis',
+                    'implementation': 'implementation',
+                    'testing': 'testing',
+                    'documentation': 'documentation',
+                    'integration': 'integration'
+                }
+                task_type = role_to_type.get(agent_role, 'analysis')
+                self.task_type_var.set(self.task_types_map.get(task_type, 'Analysis'))
 
-        # Set appropriate task type based on agent
-        task_type_map = {
-            'requirements-analyst': 'analysis',
-            'architect': 'technical_analysis',
-            'implementer': 'implementation',
-            'tester': 'testing',
-            'documenter': 'documentation'
-        }
-        task_type = task_type_map.get(agent, 'analysis')
-        self.task_type_var.set(self.task_types_map.get(task_type, 'Analysis'))
+            # Set priority based on workflow name
+            if 'hotfix' in template.name.lower() or 'emergency' in template.name.lower():
+                self.priority_var.set('critical')
+            elif 'bug' in template.name.lower():
+                self.priority_var.set('high')
+            else:
+                self.priority_var.set('normal')
 
-        # Enable automation
-        self.auto_complete_var.set(True)
-        self.auto_chain_var.set(True)
+            # Enable automation
+            self.auto_complete_var.set(True)
+            self.auto_chain_var.set(True)
 
-        # Clear description.
-        self.description_text.delete('1.0', tk.END)
+            # Clear description
+            self.description_text.delete('1.0', tk.END)
 
-        # Focus on title
+            # Focus on title
+            self.set_focus(self.title_entry)
+
+    def on_show(self):
+        """Called after dialog shown - set initial focus and trigger agent selection."""
         self.set_focus(self.title_entry)
 
+        # Trigger initial agent selection
+        if self.agent_combo['values']:
+            self.on_agent_selected()
+
     def validate_source_file(self):
-        """Validate source file against agent's expected pattern."""
-        agent_display = self.agent_var.get()
+        """Validate source file (v5.0 - simplified validation)."""
         source_file = self.source_var.get().strip()
 
-        if not agent_display or not source_file:
+        if not source_file:
             self.source_validation_label.config(text="", foreground='black')
             return
 
-        agent_key = self.get_agent_key(agent_display)
-        is_valid, message = self.queue.validate_source_file_pattern(agent_key, source_file)
+        # Convert to absolute path if relative
+        source_path = Path(source_file)
+        if not source_path.is_absolute():
+            source_path = self.queue.project_root / source_path
 
-        if is_valid:
-            self.source_validation_label.config(text=message, foreground='green')
+        # Basic validation: check if file/directory exists
+        if source_path.exists():
+            if source_path.is_file():
+                self.source_validation_label.config(
+                    text="✓ File exists",
+                    foreground='green'
+                )
+            elif source_path.is_dir():
+                self.source_validation_label.config(
+                    text="✓ Directory exists",
+                    foreground='green'
+                )
         else:
-            self.source_validation_label.config(text=message, foreground='orange')
+            self.source_validation_label.config(
+                text="⚠ File/directory not found",
+                foreground='orange'
+            )
 
     def browse_source(self):
         """Browse for source file."""
@@ -350,7 +419,6 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         )
 
         if filename:
-            # Using PathUtils!
             rel_path = PathUtils.relative_to_project(Path(filename), self.queue.project_root)
             self.source_var.set(rel_path)
 
@@ -414,13 +482,12 @@ Include:
 - Technical requirements
 - Acceptance criteria"""
 
-        # Using ClaudeGeneratorMixin - Much simpler!
+        # Using ClaudeGeneratorMixin
         self.call_claude_async(
             context=context,
             system_prompt=system_prompt,
             message="Generating task description",
             estimate="15-30 seconds",
-            # timeout will use configured value from settings
             on_success=self.on_generation_complete,
             on_error=self.on_generation_error
         )
@@ -467,8 +534,12 @@ Include:
             source_path = self.queue.project_root / source_path
 
         if not source_path.exists():
-            messagebox.showerror("File Not Found", f"Source file does not exist: {source_file}")
-            return False
+            response = messagebox.askyesno(
+                "File Not Found",
+                f"Source file does not exist: {source_file}\n\nCreate task anyway?"
+            )
+            if not response:
+                return False
 
         return True
 
@@ -500,7 +571,6 @@ Include:
                 auto_complete=self.auto_complete_var.get(),
                 auto_chain=self.auto_chain_var.get()
             )
-            # Use BaseDialog.close() with result
             self.close(result=task_id)
 
         except Exception as e:

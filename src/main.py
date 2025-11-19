@@ -147,9 +147,9 @@ class MainView:
         # Workflows menu
         workflows_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Workflows", menu=workflows_menu)
-        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,
-                                   accelerator="Ctrl+W")
-        workflows_menu.add_separator()  # ADD THIS
+        workflows_menu.add_command(label="Start Workflow...", command=self.show_workflow_launcher,accelerator="Ctrl+Shift+W")
+        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,accelerator="Ctrl+W")
+        workflows_menu.add_separator()
         workflows_menu.add_command(label="Manage Templates...", command=self.show_workflow_template_manager)
 
         # Integration menu
@@ -185,6 +185,7 @@ class MainView:
         self.root.bind('<Control-n>', lambda e: self.create_task())
         self.root.bind('<Control-e>', lambda e: self.show_enhancement_generator())
         self.root.bind('<Control-w>', lambda e: self.show_workflow_viewer())
+        self.root.bind('<Control-Shift-W>', lambda e: self.show_workflow_launcher())
         self.root.bind('<Control-k>', lambda e: self.show_skills_viewer())
         self.root.bind('<Control-i>', lambda e: self.show_integration_dashboard())
         self.root.bind('<Control-l>', lambda e: self.show_operations_log())
@@ -790,6 +791,19 @@ class MainView:
 
         from .dialogs import WorkflowStateViewer
         WorkflowStateViewer(self.root, self.queue)
+
+    def show_workflow_launcher(self):
+        """Show workflow starter dialog."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        from .dialogs import WorkflowLauncherDialog
+        dialog = WorkflowLauncherDialog(self.root, self.queue, self.settings)
+
+        if dialog.result:
+            # Workflow started - refresh to show first task
+            self.refresh()
 
     def show_workflow_template_manager(self):
         """Show workflow template manager."""
