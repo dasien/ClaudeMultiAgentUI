@@ -436,8 +436,6 @@ class WorkflowTemplateEditorDialog(BaseDialog):
         if issues:
             result = "Validation Issues Found:\n\n" + "\n".join(f"• {issue}" for issue in issues)
             messagebox.showwarning("Validation Issues", result)
-        else:
-            messagebox.showinfo("Validation", "✓ Workflow is valid!\n\nAll steps properly configured.")
 
     def validate(self) -> bool:
         """Validate template before saving."""
@@ -527,7 +525,6 @@ class WorkflowTemplateEditorDialog(BaseDialog):
             with open(templates_file, 'w') as f:
                 json.dump(data, f, indent=2)
 
-            messagebox.showinfo("Success", f"Saved workflow template: {name}")
             self.close(result=slug)
 
         except Exception as e:

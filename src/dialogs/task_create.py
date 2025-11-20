@@ -39,36 +39,43 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         ttk.Label(main_frame, text="Title: *").pack(anchor="w")
         self.title_var = tk.StringVar()
         self.title_entry = ttk.Entry(main_frame, textvariable=self.title_var, width=70)
-        self.title_entry.pack(fill="x", pady=(0, 5))
+        self.title_entry.pack(fill="x", pady=(0, 10))
 
-        # Workflow and Agent on same line
-        workflow_agent_frame = ttk.Frame(main_frame)
-        workflow_agent_frame.pack(fill="x", pady=(0, 10))
-
-        # Workflow
-        workflow_col = ttk.Frame(workflow_agent_frame)
-        workflow_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ttk.Label(workflow_col, text="Quick Start Workflow (optional):").pack(anchor="w")
-        self.workflow_var = tk.StringVar()
-        self.workflow_combo = ttk.Combobox(workflow_col, textvariable=self.workflow_var, state='readonly', width=25)
-
-        # Load workflows from templates dynamically
-        self.load_workflow_list()
-
-        self.workflow_combo.pack(fill="x")
-        self.workflow_combo.bind('<<ComboboxSelected>>', self.on_workflow_selected)
+        # Agent, Priority, and Task Type on same line
+        config_frame = ttk.Frame(main_frame)
+        config_frame.pack(fill="x", pady=(0, 10))
 
         # Agent
-        agent_col = ttk.Frame(workflow_agent_frame)
-        agent_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        agent_col = ttk.Frame(config_frame)
+        agent_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
         ttk.Label(agent_col, text="Agent: *").pack(anchor="w")
         self.agent_var = tk.StringVar()
-        self.agent_combo = ttk.Combobox(agent_col, textvariable=self.agent_var, state='readonly', width=25)
+        self.agent_combo = ttk.Combobox(agent_col, textvariable=self.agent_var, state='readonly')
         self.agent_combo['values'] = list(self.agents_map.values())
         if self.agent_combo['values']:
             self.agent_combo.current(0)
         self.agent_combo.pack(fill="x")
         self.agent_combo.bind('<<ComboboxSelected>>', self.on_agent_selected)
+
+        # Priority
+        priority_col = ttk.Frame(config_frame)
+        priority_col.pack(side="left", fill="x", expand=True, padx=(5, 5))
+        ttk.Label(priority_col, text="Priority: *").pack(anchor="w")
+        self.priority_var = tk.StringVar()
+        priority_combo = ttk.Combobox(priority_col, textvariable=self.priority_var, state='readonly')
+        priority_combo['values'] = self.queue.get_priorities()
+        priority_combo.current(1)
+        priority_combo.pack(fill="x")
+
+        # Task Type
+        type_col = ttk.Frame(config_frame)
+        type_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ttk.Label(type_col, text="Task Type: *").pack(anchor="w")
+        self.task_type_var = tk.StringVar()
+        task_type_combo = ttk.Combobox(type_col, textvariable=self.task_type_var, state='readonly')
+        task_type_combo['values'] = list(self.task_types_map.values())
+        task_type_combo.current(0)
+        task_type_combo.pack(fill="x")
 
         # Skills Preview Frame
         self.skills_frame = ttk.LabelFrame(main_frame, text="🎯 Agent Skills", padding=10)
@@ -90,32 +97,8 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         )
         self.preview_btn.pack(anchor="w", pady=(5, 0))
 
-        # Priority and Task Type on same line
-        priority_type_frame = ttk.Frame(main_frame)
-        priority_type_frame.pack(fill="x", pady=(0, 10))
-
-        # Priority
-        priority_col = ttk.Frame(priority_type_frame)
-        priority_col.pack(side="left", fill="x", expand=True, padx=(0, 5))
-        ttk.Label(priority_col, text="Priority: *").pack(anchor="w")
-        self.priority_var = tk.StringVar()
-        priority_combo = ttk.Combobox(priority_col, textvariable=self.priority_var, state='readonly', width=25)
-        priority_combo['values'] = self.queue.get_priorities()
-        priority_combo.current(1)
-        priority_combo.pack(fill="x")
-
-        # Task Type
-        type_col = ttk.Frame(priority_type_frame)
-        type_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
-        ttk.Label(type_col, text="Task Type: *").pack(anchor="w")
-        self.task_type_var = tk.StringVar()
-        task_type_combo = ttk.Combobox(type_col, textvariable=self.task_type_var, state='readonly', width=25)
-        task_type_combo['values'] = list(self.task_types_map.values())
-        task_type_combo.current(0)
-        task_type_combo.pack(fill="x")
-
-        # Source File
-        ttk.Label(main_frame, text="Source File: *").pack(anchor="w")
+        # Source File (optional)
+        ttk.Label(main_frame, text="Source File (optional):").pack(anchor="w")
         source_frame = ttk.Frame(main_frame)
         source_frame.pack(fill="x", pady=(0, 5))
 
@@ -126,7 +109,12 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
 
         self.source_var.trace_add('write', lambda *args: self.validate_source_file())
 
-        self.source_validation_label = ttk.Label(main_frame, text="", font=('Arial', 9))
+        self.source_validation_label = ttk.Label(
+            main_frame,
+            text="If not specified, output will be saved to enhancements/<task_id>/",
+            font=('Arial', 8),
+            foreground='gray'
+        )
         self.source_validation_label.pack(anchor="w", pady=(0, 10))
 
         # Prompt
@@ -138,23 +126,14 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         self.description_text = tk.Text(main_frame, height=8, wrap="word")
         self.description_text.pack(fill="both", expand=True, pady=(0, 10))
 
-        # Automation options
-        options_frame = ttk.LabelFrame(main_frame, text="Automation Options", padding=10)
-        options_frame.pack(fill="x", pady=(0, 10))
-
-        self.auto_complete_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            options_frame,
-            text="Auto Complete (complete without prompting)",
-            variable=self.auto_complete_var
-        ).pack(anchor="w")
-
-        self.auto_chain_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(
-            options_frame,
-            text="Auto Chain (automatically progress to next agent)",
-            variable=self.auto_chain_var
-        ).pack(anchor="w")
+        # Note about automation
+        note_label = ttk.Label(
+            main_frame,
+            text="Note: Tasks will auto-complete but will not auto-chain to other agents.",
+            font=('Arial', 9, 'italic'),
+            foreground='gray'
+        )
+        note_label.pack(anchor="w", pady=(0, 10))
 
         # Buttons
         self.create_button_frame(main_frame, [
@@ -163,53 +142,7 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
             ("Cancel", self.cancel)
         ])
 
-    def load_workflow_list(self):
-        """Load workflows dynamically from workflow_templates.json."""
-        try:
-            workflows = self.queue.get_workflow_templates()
-
-            # Build dropdown values - (none) first, then all workflows
-            workflow_values = ["(none)"]
-
-            # Map for looking up template by display name
-            self.workflow_template_map = {}
-
-            for template in workflows:
-                # Create display name with icon based on template name
-                display_name = self._get_workflow_display_name(template)
-                workflow_values.append(display_name)
-                self.workflow_template_map[display_name] = template
-
-            self.workflow_combo['values'] = workflow_values
-            self.workflow_combo.current(0)
-
-        except Exception as e:
-            print(f"Warning: Could not load workflows: {e}")
-            # Fallback to empty list
-            self.workflow_combo['values'] = ["(none)"]
-            self.workflow_combo.current(0)
-
-    def _get_workflow_display_name(self, template) -> str:
-        """Get display name for workflow with appropriate icon."""
-        # Try to match common workflow types and add icons
-        name_lower = template.name.lower()
-
-        if 'feature' in name_lower or 'development' in name_lower:
-            icon = "📋"
-        elif 'bug' in name_lower and 'hot' not in name_lower:
-            icon = "🐛"
-        elif 'hotfix' in name_lower or 'emergency' in name_lower:
-            icon = "🔥"
-        elif 'refactor' in name_lower or 'optimization' in name_lower:
-            icon = "🔧"
-        elif 'doc' in name_lower:
-            icon = "📝"
-        elif 'performance' in name_lower:
-            icon = "⚡"
-        else:
-            icon = "🔄"
-
-        return f"{icon} {template.name}"
+    def on_show(self):
         """Called after dialog shown - set initial focus and trigger agent selection."""
         self.set_focus(self.title_entry)
 
@@ -315,68 +248,6 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load skills prompt: {e}")
-
-    def on_workflow_selected(self, event=None):
-        """Handle workflow selection from dropdown."""
-        workflow_display = self.workflow_var.get()
-
-        if workflow_display == "(none)":
-            return
-
-        # Get template from map
-        template = self.workflow_template_map.get(workflow_display)
-        if not template:
-            return
-
-        # Get first step of workflow
-        if template.steps:
-            first_step = template.steps[0]
-            agent = first_step.agent
-
-            # Set agent
-            agent_name = self.agents_map.get(agent, agent)
-            self.agent_var.set(agent_name)
-            self.on_agent_selected()
-
-            # Set task type based on agent role
-            agent_role = self.queue.get_agent_role(agent)
-            if agent_role:
-                role_to_type = {
-                    'analysis': 'analysis',
-                    'technical_design': 'technical_analysis',
-                    'implementation': 'implementation',
-                    'testing': 'testing',
-                    'documentation': 'documentation',
-                    'integration': 'integration'
-                }
-                task_type = role_to_type.get(agent_role, 'analysis')
-                self.task_type_var.set(self.task_types_map.get(task_type, 'Analysis'))
-
-            # Set priority based on workflow name
-            if 'hotfix' in template.name.lower() or 'emergency' in template.name.lower():
-                self.priority_var.set('critical')
-            elif 'bug' in template.name.lower():
-                self.priority_var.set('high')
-            else:
-                self.priority_var.set('normal')
-
-            # Enable automation
-            self.auto_complete_var.set(True)
-            self.auto_chain_var.set(True)
-
-            # Clear description
-            self.description_text.delete('1.0', tk.END)
-
-            # Focus on title
-            self.set_focus(self.title_entry)
-
-    def on_show(self):
-        """Called after dialog shown - set initial focus and trigger agent selection."""
-        self.set_focus(self.title_entry)
-
-        # Trigger initial agent selection
-        if self.agent_combo['values']:
-            self.on_agent_selected()
 
     def validate_source_file(self):
         """Validate source file (v5.0 - simplified validation)."""
@@ -521,25 +392,27 @@ Include:
         agent_display = self.agent_var.get()
         priority = self.priority_var.get()
         task_type_display = self.task_type_var.get()
-        source_file = self.source_var.get().strip()
         description = self.description_text.get('1.0', tk.END).strip()
 
-        if not all([title, agent_display, priority, task_type_display, source_file, description]):
-            messagebox.showwarning("Validation Error", "All fields are required.")
+        # Source file is now optional
+        if not all([title, agent_display, priority, task_type_display, description]):
+            messagebox.showwarning("Validation Error", "Title, Agent, Priority, Task Type, and Description are required.")
             return False
 
-        # Validate source exists
-        source_path = Path(source_file)
-        if not source_path.is_absolute():
-            source_path = self.queue.project_root / source_path
+        # If source file is provided, validate it exists (optional warning)
+        source_file = self.source_var.get().strip()
+        if source_file:
+            source_path = Path(source_file)
+            if not source_path.is_absolute():
+                source_path = self.queue.project_root / source_path
 
-        if not source_path.exists():
-            response = messagebox.askyesno(
-                "File Not Found",
-                f"Source file does not exist: {source_file}\n\nCreate task anyway?"
-            )
-            if not response:
-                return False
+            if not source_path.exists():
+                response = messagebox.askyesno(
+                    "File Not Found",
+                    f"Source file does not exist: {source_file}\n\nCreate task anyway?"
+                )
+                if not response:
+                    return False
 
         return True
 
@@ -560,6 +433,10 @@ Include:
         agent = self.get_agent_key(agent_display)
         task_type = self.get_task_type_key(task_type_display)
 
+        # If no source file provided, use empty string (CMAT will handle it)
+        if not source_file:
+            source_file = ""
+
         try:
             task_id = self.queue.add_task(
                 title=title,
@@ -568,8 +445,8 @@ Include:
                 task_type=task_type,
                 source_file=source_file,
                 description=description,
-                auto_complete=self.auto_complete_var.get(),
-                auto_chain=self.auto_chain_var.get()
+                auto_complete=True,  # Always true for standalone tasks
+                auto_chain=False     # Always false for standalone tasks
             )
             self.close(result=task_id)
 

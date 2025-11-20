@@ -450,13 +450,6 @@ class WorkflowLauncherDialog(BaseDialog):
             self.queue.start_workflow(self.selected_template.slug, enhancement_name)
 
             # Success - close dialog and return to main view
-            messagebox.showinfo(
-                "Workflow Started",
-                f"Workflow '{self.selected_template.name}' started!\n\n"
-                f"The first task has been created and started.\n"
-                f"Check the task queue for progress."
-            )
-
             self.close(result=True)
 
         except Exception as e:

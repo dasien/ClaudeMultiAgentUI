@@ -226,8 +226,8 @@ class MainView:
         tree_frame = ttk.Frame(label_frame)
         tree_frame.pack(fill="both", expand=True)
 
-        # Columns without external_links
-        columns = ('task_id', 'title', 'enhancement', 'agent', 'status', 'start_date', 'end_date', 'runtime', 'cost')
+        # Columns: Task ID, Workflow, Title, Enhancement, Agent, Status
+        columns = ('task_id', 'workflow', 'title', 'enhancement', 'agent', 'status')
         self.task_tree = ttk.Treeview(
             tree_frame,
             columns=columns,
@@ -236,24 +236,18 @@ class MainView:
         )
 
         self.task_tree.heading('task_id', text='Task ID', command=lambda: self.sort_by('task_id'))
+        self.task_tree.heading('workflow', text='Workflow', command=lambda: self.sort_by('workflow'))
         self.task_tree.heading('title', text='Title', command=lambda: self.sort_by('title'))
         self.task_tree.heading('enhancement', text='Enhancement', command=lambda: self.sort_by('enhancement'))
         self.task_tree.heading('agent', text='Agent', command=lambda: self.sort_by('agent'))
         self.task_tree.heading('status', text='Status', command=lambda: self.sort_by('status'))
-        self.task_tree.heading('start_date', text='Start Date', command=lambda: self.sort_by('start_date'))
-        self.task_tree.heading('end_date', text='End Date', command=lambda: self.sort_by('end_date'))
-        self.task_tree.heading('runtime', text='Runtime', command=lambda: self.sort_by('runtime'))
-        self.task_tree.heading('cost', text='Cost', command=lambda: self.sort_by('cost'))
 
         self.task_tree.column('task_id', width=160, minwidth=120)
+        self.task_tree.column('workflow', width=180, minwidth=150)
         self.task_tree.column('title', width=300, minwidth=200)
         self.task_tree.column('enhancement', width=200, minwidth=150)
         self.task_tree.column('agent', width=150, minwidth=120)
         self.task_tree.column('status', width=90, minwidth=80)
-        self.task_tree.column('start_date', width=140, minwidth=120)
-        self.task_tree.column('end_date', width=140, minwidth=120)
-        self.task_tree.column('runtime', width=80, minwidth=70)
-        self.task_tree.column('cost', width=80, minwidth=70)
 
         # Scrollbars
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.task_tree.yview)
@@ -421,33 +415,35 @@ class MainView:
                     queue_state.failed_tasks
             )
 
+            # Sort tasks: by status (pending, active, completed, failed), then by task_id descending
+            status_order = {'pending': 0, 'active': 1, 'completed': 2, 'failed': 3}
+            all_tasks.sort(key=lambda t: (status_order.get(t.status, 99), t.id), reverse=False)
+            # Reverse the task_id within each status group by sorting again with reverse on second key
+            all_tasks.sort(key=lambda t: t.id, reverse=True)
+            all_tasks.sort(key=lambda t: status_order.get(t.status, 99))
+
             # Populate and track items for re-selection
             task_id_to_item = {}
             for task in all_tasks:
                 status_display = task.status.capitalize()
-                runtime_display = self.format_runtime(task.runtime_seconds)
 
-                # Extract enhancement title from metadata
+                # Extract workflow name and enhancement title from metadata
+                workflow_name = ''
                 enhancement_title = ''
                 if task.metadata and isinstance(task.metadata, dict):
+                    workflow_name = task.metadata.get('workflow_name', '')
                     enhancement_title = task.metadata.get('enhancement_title', '')
-
-                # Extract cost from metadata
-                cost_display = self.format_cost(task)
 
                 item_id = self.task_tree.insert(
                     '',
                     tk.END,
                     values=(
                         task.id,
+                        workflow_name,
                         task.title,
                         enhancement_title,
                         task.assigned_agent,
-                        status_display,
-                        task.started or '',
-                        task.completed or '',
-                        runtime_display,
-                        cost_display
+                        status_display
                     ),
                     tags=(task.status.lower(),)
                 )
