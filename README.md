@@ -74,7 +74,7 @@ You can either connect to an existing CMAT project or install to your project.
 
 #### Option A: Install CMAT Template
 
-<img src="assets/docs_img_install.png" width="50%" alt="CMAT Installer">
+<img src="assets/docs_img_install.png" width="80%" alt="CMAT Installer">
 
 If you don't have a CMAT project yet, you can install one directly:
 
@@ -111,7 +111,7 @@ The validation checks for:
 
 ### 3. Configure Claude API (Optional but Recommended)
 
-<img src="assets/docs_img_settings.png" width="50%" alt="Claude Settings">
+<img src="assets/docs_img_settings.png" width="80%" alt="Claude Settings">
 
 For AI-powered features (highly recommended):
 
@@ -131,11 +131,11 @@ See the [User Guide](USER_GUIDE.md) for more detailed instructions on system ope
 
 ### Task Management
 
-<img src="assets/docs_img_task_create.png" width="50%" alt="Create Task">
+<img src="assets/docs_img_task_create.png" width="80%" alt="Create Task">
 
 Create standalone tasks with optional source files. Tasks auto-complete but don't auto-chain to other agents.
 
-<img src="assets/docs_img_task_details_general.png" width="50%" alt="Task Details">
+<img src="assets/docs_img_task_details_general.png" width="80%" alt="Task Details">
 
 View comprehensive task details including workflow context, skills used, and full prompts sent to Claude.
 

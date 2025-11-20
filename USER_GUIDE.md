@@ -105,7 +105,7 @@ For AI-powered features, you'll need:
 
 ## Main Window Overview
 
-<img src="assets/docs_img_task_list.png" width="50%" alt="Main Task List">
+<img src="assets/docs_img_task_list.png" width="80%" alt="Main Task List">
 
 ### Header Bar
 
@@ -281,7 +281,7 @@ A **task** represents work assigned to an agent. Each task:
 **Shortcut**: `Ctrl+N`
 **Alternative**: Right-click in empty space → Create Task...
 
-<img src="assets/docs_img_task_create.png" width="50%" alt="Task Create Dialog">
+<img src="assets/docs_img_task_create.png" width="80%" alt="Task Create Dialog">
 
 #### Task Creation Dialog
 
@@ -474,19 +474,19 @@ Expected Statuses:  READY_FOR_IMPLEMENTATION
 - **📄 View Full Log** - Opens complete task execution log
 - **📁 Open Output Folder** - Opens directory with task outputs
 
-<img src="assets/docs_img_task_details_general.png" width="50%" alt="Task Details - General Tab">
+<img src="assets/docs_img_task_details_general.png" width="80%" alt="Task Details - General Tab">
 
 #### Prompt Tab
 
 Displays the complete prompt that was sent to Claude, extracted from the task log file.
 
-<img src="assets/docs_img_task_details_prompt.png" width="50%" alt="Task Details - Prompt Tab">
+<img src="assets/docs_img_task_details_prompt.png" width="80%" alt="Task Details - Prompt Tab">
 
 #### Log Viewer
 
 View the full task execution log with search capability.
 
-<img src="assets/docs_img_task_details_log.png" width="50%" alt="Task Details - Log Viewer">
+<img src="assets/docs_img_task_details_log.png" width="80%" alt="Task Details - Log Viewer">
 
 ---
 
@@ -532,7 +532,7 @@ The Agent Manager shows all agents in a table:
 
 Click **Create New Agent** in Agent Manager.
 
-<img src="assets/docs_img_edit_agent.png" width="50%" alt="Edit Agent Dialog">
+<img src="assets/docs_img_edit_agent.png" width="80%" alt="Edit Agent Dialog">
 
 The Agent Details dialog has **three tabs** 
 
@@ -685,7 +685,7 @@ The Workflow Template Manager shows all available templates:
 
 Click **Create New Template** in Template Manager.
 
-<img src="assets/docs_img_workflow_edit.png" width="50%" alt="Edit Workflow Template">
+<img src="assets/docs_img_workflow_edit.png" width="80%" alt="Edit Workflow Template">
 
 #### Template Basic Info
 
