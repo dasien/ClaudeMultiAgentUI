@@ -271,6 +271,10 @@ class CMATInterface:
         Returns:
             Step details dict or None if not found
         """
+        # Ensure step_index is an integer
+        if isinstance(step_index, str):
+            step_index = int(step_index)
+
         template = self.get_workflow_template(workflow_name)
         if not template or step_index >= len(template.steps):
             return None

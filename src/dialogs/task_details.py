@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 from pathlib import Path
 import subprocess
 import sys
+from typing import Optional
 
 from .base_dialog import BaseDialog
 from ..utils import TimeUtils
@@ -17,7 +18,7 @@ class TaskDetailsDialog(BaseDialog):
     """Enhanced dialog for viewing task details with workflow context (v5.0)."""
 
     def __init__(self, parent, task, queue_interface):
-        super().__init__(parent, "Task Details", 770, 800)
+        super().__init__(parent, "Task Details", 770, 950)
         self.task = task
         self.queue = queue_interface
         self.root = parent
@@ -247,8 +248,10 @@ class TaskDetailsDialog(BaseDialog):
         workflow_frame = ttk.LabelFrame(parent, text="🔄 WORKFLOW CONTEXT", padding=10)
         workflow_frame.pack(fill="x", pady=(0, 10))
 
-        # Get workflow details
+        # Get workflow details (convert to int if it's a string)
         workflow_step = self.task.metadata.get('workflow_step', 0)
+        if isinstance(workflow_step, str):
+            workflow_step = int(workflow_step)
 
         # Load workflow template
         workflow = self.queue.get_workflow_template(workflow_name)
@@ -333,22 +336,92 @@ class TaskDetailsDialog(BaseDialog):
         scrollable_frame = ttk.Frame(parent, padding=20)
         scrollable_frame.pack(fill="both", expand=True)
 
-        ttk.Label(scrollable_frame, text="Task Prompt:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        # Try to extract full prompt from log file
+        full_prompt = self._extract_prompt_from_log()
+
+        if full_prompt:
+            ttk.Label(scrollable_frame, text="Full Prompt Sent to Claude:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+            prompt_to_show = full_prompt
+        else:
+            ttk.Label(scrollable_frame, text="Task Description:", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+            ttk.Label(
+                scrollable_frame,
+                text="(Full prompt not available - showing task description only)",
+                font=('Arial', 8),
+                foreground='gray'
+            ).pack(anchor="w", pady=(0, 5))
+            prompt_to_show = self.task.description
 
         desc_frame = ttk.Frame(scrollable_frame)
         desc_frame.pack(fill="both", expand=True, pady=(0, 15))
 
-        desc_text = tk.Text(desc_frame, wrap="word", state=tk.NORMAL)
+        desc_text = tk.Text(desc_frame, wrap="word", state=tk.NORMAL, font=('Courier', 9))
         desc_scroll = ttk.Scrollbar(desc_frame, command=desc_text.yview)
         desc_text.configure(yscrollcommand=desc_scroll.set)
 
         desc_text.pack(side="left", fill="both", expand=True)
         desc_scroll.pack(side="right", fill="y")
 
-        desc_text.insert('1.0', self.task.description)
+        desc_text.insert('1.0', prompt_to_show)
         desc_text.config(state=tk.DISABLED)
 
         return scrollable_frame
+
+    def _extract_prompt_from_log(self) -> Optional[str]:
+        """Extract the full prompt from the task log file."""
+        log_content = self.queue.get_task_log(self.task.id, self.task.source_file)
+        if not log_content:
+            return None
+
+        # Look for the prompt section in the log
+        # The log format has separator lines with "PROMPT SENT TO AGENT" and "END OF PROMPT"
+        start_marker = "PROMPT SENT TO AGENT"
+        end_marker = "END OF PROMPT"
+
+        if start_marker not in log_content or end_marker not in log_content:
+            return None
+
+        # Find the start of the prompt (after the header line with equals signs)
+        start_idx = log_content.find(start_marker)
+        if start_idx == -1:
+            return None
+
+        # Skip past the marker line and any following separator line
+        start_idx = log_content.find('\n', start_idx)
+        if start_idx == -1:
+            return None
+        start_idx += 1
+
+        # Skip any separator lines (lines with ===)
+        while start_idx < len(log_content) and log_content[start_idx:start_idx+5] == '=====':
+            start_idx = log_content.find('\n', start_idx)
+            if start_idx == -1:
+                return None
+            start_idx += 1
+
+        # Find the end marker
+        end_idx = log_content.find(end_marker, start_idx)
+        if end_idx == -1:
+            return None
+
+        # Back up to before the separator line before END OF PROMPT
+        # Look backward for the last newline before the === separator
+        temp_idx = end_idx - 1
+        while temp_idx > start_idx and log_content[temp_idx] in '\n=':
+            temp_idx -= 1
+
+        # Find the newline before the separator
+        while temp_idx > start_idx and log_content[temp_idx] != '\n':
+            temp_idx -= 1
+
+        if temp_idx > start_idx:
+            end_idx = temp_idx
+
+        if start_idx < end_idx:
+            prompt = log_content[start_idx:end_idx].strip()
+            return prompt
+
+        return None
 
     def _get_output_path(self) -> Path:
         """Get output path for this task."""

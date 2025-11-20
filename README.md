@@ -33,23 +33,6 @@ Once installed and connected to a CMAT project, users can create 'enhancements' 
 - 🔍 **Workflow Context Display** - Tasks show their position in workflows with expected inputs/outputs
 - ✅ **Real-time Workflow Validation** - Validates workflows before starting with clear feedback
 
-## Screenshots
-
-### Main Window
-The main window shows all tasks across all statuses (pending, active, completed, failed) in a single table view.
-
-![Main Window](assets/docs_img_main.png)
-
-### Create Task
-Create new tasks with AI-powered description generation, agent selection, and automated workflow options. Now includes dynamic workflow loading from templates.
-
-![Create Task Dialog](assets/docs_img_create_task.png)
-
-### Task Details
-Double-click any task to view complete details including description, timestamps, workflow context, and access to logs.
-
-![Task Details](assets/docs_img_task_details.png)
-
 ## Requirements
 
 - Python 3.7 or higher
@@ -75,6 +58,8 @@ python3 -m src.main
 
 ## Usage
 
+<img src="assets/docs_img_task_list.png" width="80%" alt="Main Task List">
+
 ### 1. Launch the Application
 
 ```bash
@@ -88,6 +73,8 @@ python3 -m src.main
 You can either connect to an existing CMAT project or install to your project.
 
 #### Option A: Install CMAT Template
+
+<img src="assets/docs_img_install.png" width="50%" alt="CMAT Installer">
 
 If you don't have a CMAT project yet, you can install one directly:
 
@@ -124,6 +111,8 @@ The validation checks for:
 
 ### 3. Configure Claude API (Optional but Recommended)
 
+<img src="assets/docs_img_settings.png" width="50%" alt="Claude Settings">
+
 For AI-powered features (highly recommended):
 
 1. Get a Claude API key from [console.anthropic.com](https://console.anthropic.com)
@@ -139,6 +128,16 @@ You can now use:
 - **Agent instructions generation** when creating agents
 
 See the [User Guide](USER_GUIDE.md) for more detailed instructions on system operation.
+
+### Task Management
+
+<img src="assets/docs_img_task_create.png" width="50%" alt="Create Task">
+
+Create standalone tasks with optional source files. Tasks auto-complete but don't auto-chain to other agents.
+
+<img src="assets/docs_img_task_details_general.png" width="50%" alt="Task Details">
+
+View comprehensive task details including workflow context, skills used, and full prompts sent to Claude.
 
 ## What's New in v5.0
 

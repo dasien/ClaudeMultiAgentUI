@@ -117,6 +117,19 @@ class MainView:
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.quit_app, accelerator="Ctrl+Q")
 
+        # Workflows menu
+        workflows_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Workflows", menu=workflows_menu)
+        workflows_menu.add_command(label="Start Workflow...", command=self.show_workflow_launcher,accelerator="Ctrl+Shift+W")
+        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,accelerator="Ctrl+W")
+        workflows_menu.add_separator()
+        workflows_menu.add_command(label="Manage Templates...", command=self.show_workflow_template_manager)
+
+        # Enhancements menu
+        enhancements_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Enhancements", menu=enhancements_menu)
+        enhancements_menu.add_command(label="Generate...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
+
         # Tasks menu
         tasks_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tasks", menu=tasks_menu)
@@ -138,19 +151,6 @@ class MainView:
         skills_menu.add_command(label="Browse Skills...", command=self.show_skills_viewer, accelerator="Ctrl+K")
         skills_menu.add_separator()
         skills_menu.add_command(label="View Agent Skills...", command=self.show_agent_skills)
-
-        # Enhancements menu
-        enhancements_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Enhancements", menu=enhancements_menu)
-        enhancements_menu.add_command(label="Generate...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
-
-        # Workflows menu
-        workflows_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Workflows", menu=workflows_menu)
-        workflows_menu.add_command(label="Start Workflow...", command=self.show_workflow_launcher,accelerator="Ctrl+Shift+W")
-        workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,accelerator="Ctrl+W")
-        workflows_menu.add_separator()
-        workflows_menu.add_command(label="Manage Templates...", command=self.show_workflow_template_manager)
 
         # Integration menu
         integration_menu = tk.Menu(menubar, tearoff=0)

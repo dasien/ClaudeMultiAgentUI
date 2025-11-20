@@ -105,6 +105,8 @@ For AI-powered features, you'll need:
 
 ## Main Window Overview
 
+<img src="assets/docs_img_task_list.png" width="50%" alt="Main Task List">
+
 ### Header Bar
 
 The header displays your connection status:
@@ -123,14 +125,11 @@ The main table displays all tasks with columns:
 | Column | Description |
 |--------|-------------|
 | **Task ID** | Unique identifier (e.g., `task_2025-01-15_1234567890`) |
+| **Workflow** | Workflow name from metadata (if part of workflow) |
 | **Title** | Short task description |
 | **Enhancement** | Enhancement title from metadata |
 | **Agent** | Assigned agent name |
 | **Status** | Current status (Pending, Active, Completed, Failed) |
-| **Start Date** | When task execution began |
-| **End Date** | When task completed or failed |
-| **Runtime** | Total execution time (e.g., "2m 30s") |
-| **Cost** | API cost for task (if available) |
 
 ### Task Status Colors
 
@@ -140,6 +139,14 @@ Tasks are color-coded for quick identification:
 - **Light yellow background** - Active tasks
 - **Light green background** - Completed tasks
 - **Light red background** - Failed tasks
+
+### Task Sorting
+
+Tasks are automatically sorted by:
+1. **Status** (pending → active → completed → failed)
+2. **Task ID descending** within each status group
+
+This means the most recent tasks in each status group appear at the top, making it easy to see the latest activity.
 
 ### Status Bar
 
@@ -270,9 +277,11 @@ A **task** represents work assigned to an agent. Each task:
 
 ### Creating a Task
 
-**Menu**: Tasks > Create Task...  
-**Shortcut**: `Ctrl+N`  
+**Menu**: Tasks > Create Task...
+**Shortcut**: `Ctrl+N`
 **Alternative**: Right-click in empty space → Create Task...
+
+<img src="assets/docs_img_task_create.png" width="50%" alt="Task Create Dialog">
 
 #### Task Creation Dialog
 
@@ -465,13 +474,19 @@ Expected Statuses:  READY_FOR_IMPLEMENTATION
 - **📄 View Full Log** - Opens complete task execution log
 - **📁 Open Output Folder** - Opens directory with task outputs
 
+<img src="assets/docs_img_task_details_general.png" width="50%" alt="Task Details - General Tab">
+
 #### Prompt Tab
 
-Displays the complete task description sent to the agent, including:
-- Original user instructions
-- Context from source file
-- Skills injected into prompt
-- Any additional guidance
+Displays the complete prompt that was sent to Claude, extracted from the task log file.
+
+<img src="assets/docs_img_task_details_prompt.png" width="50%" alt="Task Details - Prompt Tab">
+
+#### Log Viewer
+
+View the full task execution log with search capability.
+
+<img src="assets/docs_img_task_details_log.png" width="50%" alt="Task Details - Log Viewer">
 
 ---
 
@@ -513,9 +528,11 @@ The Agent Manager shows all agents in a table:
 - **Delete Selected** - Remove agent (with confirmation)
 - **Refresh** - Reload from files
 
-### Creating a New Agent 
+### Creating a New Agent
 
 Click **Create New Agent** in Agent Manager.
+
+<img src="assets/docs_img_edit_agent.png" width="50%" alt="Edit Agent Dialog">
 
 The Agent Details dialog has **three tabs** 
 
@@ -667,6 +684,8 @@ The Workflow Template Manager shows all available templates:
 ### Creating a Workflow Template
 
 Click **Create New Template** in Template Manager.
+
+<img src="assets/docs_img_workflow_edit.png" width="50%" alt="Edit Workflow Template">
 
 #### Template Basic Info
 

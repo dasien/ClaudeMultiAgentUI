@@ -85,8 +85,8 @@ class WorkflowStateViewer(BaseDialog):
                 ).pack(pady=20)
                 return
 
-            # Display each workflow
-            for (enhancement, workflow_name), tasks in sorted(workflow_groups.items()):
+            # Display each workflow (handle None workflow_name for sorting)
+            for (enhancement, workflow_name), tasks in sorted(workflow_groups.items(), key=lambda x: (x[0][0] or '', x[0][1] or '')):
                 self.render_workflow(enhancement, workflow_name, tasks)
 
         except Exception as e:
