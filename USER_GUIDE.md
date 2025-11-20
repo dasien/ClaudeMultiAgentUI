@@ -839,10 +839,12 @@ Click **Save Template**
 
 ### Workflow Starter Dialog
 
-**Menu**: Workflows > Start Workflow...  
+**Menu**: Workflows > Start Workflow...
 **Shortcut**: `Ctrl+Shift+W`
 
 The Workflow Starter provides a quick, validated way to start multi-agent workflows.
+
+<img src="assets/docs_img_workflow_start.png" width="80%" alt="Start Workflow Dialog">
 
 #### Workflow Starter Interface
 
@@ -964,10 +966,12 @@ Enhancements serve as the primary input for your multi-agent workflows.
 
 ### Generating an Enhancement
 
-**Menu**: Enhancements > Generate...  
+**Menu**: Enhancements > Generate...
 **Shortcut**: `Ctrl+E`
 
 **Requirements**: Claude API key must be configured.
+
+<img src="assets/docs_img_create_enhancement.png" width="80%" alt="Create Enhancement Dialog">
 
 #### Enhancement Generator Dialog
 
