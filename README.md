@@ -1,15 +1,16 @@
-# Multi-Agent Task Queue Manager
+# Claude Multi-Agent Workflow Manager
 
 ![Version](https://img.shields.io/badge/version-1.3.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v5.0.
+A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v5.0+.
 
 I created this tool to make the creation and management of CMAT-based projects easier. Rather than using the cmat.sh script directly, users can leverage a comprehensive GUI to create tasks, manage agents with their skills, configure workflow templates, and generate enhancements for their projects.
 
 Once installed and connected to a CMAT project, users can create 'enhancements' - well-structured specification files that include user stories, requirements, constraints, and acceptance criteria. These enhancements can then be processed through customizable multi-agent workflows, with each agent contributing its expertise to deliver comprehensive results.
 
+Default workflows are provided for common tasks, but users can create custom workflows to suit their needs.
 ## Features
 
 ### Core Features

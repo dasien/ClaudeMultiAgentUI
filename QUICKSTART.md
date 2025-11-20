@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This document describes the process to get up and running with the Multi-Agent Task Queue Manager v1.2.0 (CMAT v5.0).
+This document describes the process to get up and running with the Claude Multi-Agent Workflow Manager v1.3.0 (CMAT v5.0+).
 
 ## Prerequisites
 
