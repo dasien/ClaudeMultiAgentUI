@@ -35,7 +35,7 @@ __all__ = [
     'CreateEnhancementDialog',
     'WorkingDialog',
     'ClaudeSettingsDialog',
-    'WorkflowTemplateManagerDialog', 
+    'WorkflowTemplateManagerDialog',
     'WorkflowTemplateEditorDialog',
     'WorkflowLauncherDialog',
 ]

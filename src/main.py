@@ -107,7 +107,10 @@ class MainView:
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
 
-        # File menu
+        # Store menu references for enabling/disabling
+        self.menus = {}
+
+        # File menu (always enabled)
         file_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Install...", command=self.show_install_cmat_dialog)
@@ -117,55 +120,62 @@ class MainView:
         file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.quit_app, accelerator="Ctrl+Q")
 
-        # Workflows menu
+        # Workflows menu (requires connection)
         workflows_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Workflows", menu=workflows_menu)
+        menubar.add_cascade(label="Workflows", menu=workflows_menu, state="disabled")
         workflows_menu.add_command(label="Start Workflow...", command=self.show_workflow_launcher,accelerator="Ctrl+Shift+W")
         workflows_menu.add_command(label="View Active Workflows...", command=self.show_workflow_viewer,accelerator="Ctrl+W")
         workflows_menu.add_separator()
         workflows_menu.add_command(label="Manage Templates...", command=self.show_workflow_template_manager)
+        self.menus['workflows'] = menubar.index("Workflows")
 
-        # Enhancements menu
+        # Enhancements menu (requires connection)
         enhancements_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Enhancements", menu=enhancements_menu)
+        menubar.add_cascade(label="Enhancements", menu=enhancements_menu, state="disabled")
         enhancements_menu.add_command(label="Generate...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
+        self.menus['enhancements'] = menubar.index("Enhancements")
 
-        # Tasks menu
+        # Tasks menu (requires connection)
         tasks_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Tasks", menu=tasks_menu)
+        menubar.add_cascade(label="Tasks", menu=tasks_menu, state="disabled")
         tasks_menu.add_command(label="Create Task...", command=self.create_task, accelerator="Ctrl+N")
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Cancel All Tasks", command=self.cancel_all_tasks)
         tasks_menu.add_command(label="Clear Finished...", command=self.clear_finished_tasks)
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Refresh List", command=self.refresh, accelerator="F5")
+        self.menus['tasks'] = menubar.index("Tasks")
 
-        # Agents menu
+        # Agents menu (requires connection)
         agents_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Agents", menu=agents_menu)
+        menubar.add_cascade(label="Agents", menu=agents_menu, state="disabled")
         agents_menu.add_command(label="Manage Agents...", command=self.show_agent_manager)
+        self.menus['agents'] = menubar.index("Agents")
 
-        # Skills menu
+        # Skills menu (requires connection)
         skills_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Skills", menu=skills_menu)
+        menubar.add_cascade(label="Skills", menu=skills_menu, state="disabled")
         skills_menu.add_command(label="Browse Skills...", command=self.show_skills_viewer, accelerator="Ctrl+K")
         skills_menu.add_separator()
         skills_menu.add_command(label="View Agent Skills...", command=self.show_agent_skills)
+        self.menus['skills'] = menubar.index("Skills")
 
-        # Integration menu
+        # Integration menu (requires connection)
         integration_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Integration", menu=integration_menu)
+        menubar.add_cascade(label="Integration", menu=integration_menu, state="disabled")
         integration_menu.add_command(label="Integration Dashboard...", command=self.show_integration_dashboard,
                                      accelerator="Ctrl+I")
         integration_menu.add_separator()
         integration_menu.add_command(label="Sync All Unsynced Tasks", command=self.sync_all_tasks)
+        self.menus['integration'] = menubar.index("Integration")
 
-        # Logs menu
+        # Logs menu (requires connection)
         logs_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Logs", menu=logs_menu)
+        menubar.add_cascade(label="Logs", menu=logs_menu, state="disabled")
         logs_menu.add_command(label="View Operations Log", command=self.show_operations_log, accelerator="Ctrl+L")
+        self.menus['logs'] = menubar.index("Logs")
 
-        # Settings menu
+        # Settings menu (always enabled)
         settings_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Settings", menu=settings_menu)
 
@@ -174,10 +184,21 @@ class MainView:
         settings_menu.add_separator()
         settings_menu.add_checkbutton(label="Auto Refresh Task List", variable=self.auto_refresh_var, command=self.toggle_auto_refresh)
 
-        # About menu
+        # About menu (always enabled)
         about_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="About", menu=about_menu)
         about_menu.add_command(label="About Task Queue UI", command=self.show_about_dialog)
+
+        # Store menubar reference
+        self.menubar = menubar
+
+    def update_menu_states(self, connected: bool):
+        """Enable or disable menus based on connection state."""
+        state = "normal" if connected else "disabled"
+
+        for menu_name in ['workflows', 'enhancements', 'tasks', 'agents', 'skills', 'integration', 'logs']:
+            if menu_name in self.menus:
+                self.menubar.entryconfig(self.menus[menu_name], state=state)
 
         # Keyboard shortcuts
         self.root.bind('<Control-o>', lambda e: self.show_connect_dialog())
@@ -310,6 +331,9 @@ class MainView:
             for item in self.task_tree.get_children():
                 self.task_tree.delete(item)
 
+            # Disable menus that require connection
+            self.update_menu_states(connected=False)
+
         elif self.state.connection_state == ConnectionState.CONNECTED:
             self.connection_label.config(text=f"Connected: {self.state.project_root}")
 
@@ -320,8 +344,14 @@ class MainView:
             if self.state.auto_refresh_enabled:
                 self.start_auto_refresh()
 
+            # Enable menus that require connection
+            self.update_menu_states(connected=True)
+
         elif self.state.connection_state == ConnectionState.ERROR:
             self.connection_label.config(text=f"Error: {self.state.error_message}", foreground='red')
+
+            # Disable menus on error
+            self.update_menu_states(connected=False)
 
     def show_connect_dialog(self):
         """Show connect dialog."""

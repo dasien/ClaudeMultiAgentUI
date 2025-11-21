@@ -55,8 +55,6 @@ class ConnectDialog(BaseDialog):
                                      foreground='gray'),
             'queue_file': ttk.Label(self.validation_frame, text="○ Task queue (.claude/queues/task_queue.json)",
                                     foreground='gray'),
-            'contracts': ttk.Label(self.validation_frame, text="○ Agent contracts (.claude/agents/agent_contracts.json)",
-                                   foreground='gray'),
             'skills': ttk.Label(self.validation_frame, text="○ Skills system (.claude/skills/skills.json)",
                                 foreground='gray'),
             'agents': ttk.Label(self.validation_frame, text="○ Agents (.claude/agents/agents.json)", foreground='gray'),
@@ -117,7 +115,6 @@ class ConnectDialog(BaseDialog):
             'project_root': project_root.exists() and project_root.is_dir(),
             'cmat_script': (project_root / ".claude/scripts/cmat.sh").exists(),
             'queue_file': (project_root / ".claude/queues/task_queue.json").exists(),
-            'contracts': (project_root / ".claude/agents/agent_contracts.json").exists(),
             'skills': (project_root / ".claude/skills/skills.json").exists(),
             'agents': (project_root / ".claude/agents/agents.json").exists(),
         }
