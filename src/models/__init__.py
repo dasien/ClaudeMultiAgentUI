@@ -11,6 +11,7 @@ from .agent import Agent
 from .tool import Tool
 from .agent_persona import AgentPersona
 from .workflow_template import WorkflowTemplate, WorkflowStep
+from .enhancement_source import EnhancementSource, SourceType
 
 __all__ = [
     'ConnectionState',
@@ -23,4 +24,6 @@ __all__ = [
     'AgentPersona',
     'WorkflowTemplate',
     'WorkflowStep',
+    'EnhancementSource',
+    'SourceType',
 ]

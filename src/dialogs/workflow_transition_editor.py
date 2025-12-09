@@ -25,6 +25,7 @@ class WorkflowTransitionEditorDialog(BaseDialog):
         self.transitions = transitions_dict.copy()  # Work on a copy
         self.workflow_agents = workflow_agents
         self.agents_map = self.queue.get_agent_list()
+        self.editing_status = None  # Track which status we're editing
 
         super().__init__(parent, "Manage Status Transitions", 720, 680)
 
@@ -183,8 +184,9 @@ class WorkflowTransitionEditorDialog(BaseDialog):
         # Populate form with existing values
         existing = self.transitions.get(status)
         if existing:
+            self.editing_status = status  # Remember we're editing this status
             self.status_var.set(status)
-            self.status_entry.config(state='readonly')  # Can't change status code when editing
+            self.status_entry.config(state='normal')  # Allow editing status code
 
             # Set next step
             next_step = existing.get('next_step')
@@ -221,6 +223,11 @@ class WorkflowTransitionEditorDialog(BaseDialog):
         else:
             next_step_key = next((k for k, v in self.agents_map.items() if v == next_step_display), None)
 
+        # If we're editing and the status changed, remove the old one
+        if self.editing_status and self.editing_status != status:
+            if self.editing_status in self.transitions:
+                del self.transitions[self.editing_status]
+
         # Add or update transition
         self.transitions[status] = {
             'next_step': next_step_key,
@@ -231,6 +238,7 @@ class WorkflowTransitionEditorDialog(BaseDialog):
         self.refresh_transitions()
 
         # Clear form
+        self.editing_status = None
         self.status_var.set('')
         self.status_entry.config(state='normal')
         self.next_step_var.set('(end workflow)')

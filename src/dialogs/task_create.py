@@ -8,17 +8,15 @@ from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
 
 from .base_dialog import BaseDialog
-from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
 from ..utils import PathUtils
 
 
-class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
+class CreateTaskDialog(BaseDialog):
     """Enhanced dialog for creating tasks (v5.0)."""
 
-    def __init__(self, parent, queue_interface, settings=None):
-        # Initialize base classes
-        BaseDialog.__init__(self, parent, "Create New Task", 700, 850)
-        ClaudeGeneratorMixin.__init__(self, settings)
+    def __init__(self, parent, queue_interface):
+        # Initialize base class
+        BaseDialog.__init__(self, parent, "Create New Task", 700, 800)
 
         self.queue = queue_interface
         self.should_start = False
@@ -117,12 +115,8 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         )
         self.source_validation_label.pack(anchor="w", pady=(0, 10))
 
-        # Prompt
-        prompt_label_frame = ttk.Frame(main_frame)
-        prompt_label_frame.pack(fill="x", anchor="w")
-        ttk.Label(prompt_label_frame, text="Task Description: *").pack(side="left")
-        ttk.Button(prompt_label_frame, text="Generate with Claude", command=self.generate_prompt).pack(side="right")
-
+        # Task Description
+        ttk.Label(main_frame, text="Task Description: *").pack(anchor="w")
         self.description_text = tk.Text(main_frame, height=8, wrap="word")
         self.description_text.pack(fill="both", expand=True, pady=(0, 10))
 
@@ -292,85 +286,6 @@ class CreateTaskDialog(BaseDialog, ClaudeGeneratorMixin):
         if filename:
             rel_path = PathUtils.relative_to_project(Path(filename), self.queue.project_root)
             self.source_var.set(rel_path)
-
-    def generate_prompt(self):
-        """Generate task description using Claude API."""
-        title = self.title_var.get().strip()
-        source_file = self.source_var.get().strip()
-
-        if not title:
-            messagebox.showwarning("Missing Title", "Please enter a task title first.")
-            return
-
-        if not source_file:
-            messagebox.showwarning("Missing Source", "Please select a source file first.")
-            return
-
-        # Build context
-        agent_display = self.agent_var.get()
-        agent_key = self.get_agent_key(agent_display)
-        task_type_display = self.task_type_var.get()
-        task_type = self.get_task_type_key(task_type_display)
-
-        context_parts = [f"Task Title: {title}"]
-
-        if task_type:
-            context_parts.append(f"Task Type: {task_type}")
-
-        if agent_display:
-            context_parts.append(f"Agent: {agent_display}")
-
-            # Include agent skills in context
-            skills = self.queue.get_agent_skills(agent_key)
-            if skills:
-                context_parts.append(f"Agent has these skills available: {', '.join(skills)}")
-
-        context_parts.append(f"Source File: {source_file}")
-
-        # Try to read source file
-        try:
-            source_path = Path(source_file)
-            if not source_path.is_absolute():
-                source_path = self.queue.project_root / source_path
-
-            if source_path.exists():
-                with open(source_path, 'r') as f:
-                    content = f.read()
-                    if len(content) > 2000:
-                        content = content[:2000] + "\n...[truncated]"
-                    context_parts.append(f"\nSource File Content:\n{content}")
-        except Exception as e:
-            print(f"Could not read source: {e}")
-
-        context = "\n".join(context_parts)
-
-        system_prompt = """You are an expert at creating detailed, actionable task descriptions for software development.
-Generate ONLY the task description content without conversational framing.
-
-Include:
-- Clear goals and objectives
-- Expected deliverables
-- Technical requirements
-- Acceptance criteria"""
-
-        # Using ClaudeGeneratorMixin
-        self.call_claude_async(
-            context=context,
-            system_prompt=system_prompt,
-            message="Generating task description",
-            estimate="15-30 seconds",
-            on_success=self.on_generation_complete,
-            on_error=self.on_generation_error
-        )
-
-    def on_generation_complete(self, content: str):
-        """Handle successful generation."""
-        self.description_text.delete('1.0', tk.END)
-        self.description_text.insert('1.0', content)
-
-    def on_generation_error(self, error: Exception):
-        """Handle generation error."""
-        messagebox.showerror("API Error", f"Failed to generate: {error}")
 
     def get_agent_key(self, display_name: str) -> str:
         """Convert agent display name to agent-file key."""

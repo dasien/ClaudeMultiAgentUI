@@ -10,7 +10,7 @@ from typing import List, Dict, Optional, Tuple
 import re
 
 from ..models import Task, AgentStatus, QueueState
-
+from .path_utils import PathUtils
 
 class CMATInterface:
     """Interface to the cmat.sh command system (v5.0+)."""
@@ -203,7 +203,7 @@ class CMATInterface:
         )
 
     # =========================================================================
-    # WORKFLOW COMMANDS (v5.0)
+    # WORKFLOW COMMANDS
     # =========================================================================
 
     def start_workflow(self, workflow_name: str, enhancement_name: str) -> subprocess.Popen:
@@ -569,6 +569,152 @@ class CMATInterface:
     # =========================================================================
     # AGENT COMMANDS
     # =========================================================================
+
+    def run_agent_direct(
+            self,
+            agent_name: str,
+            input_file: Path,
+            output_dir: Path,
+            task_description: str = "UI-invoked task",
+            task_type: str = "analysis"
+    ) -> Path:
+        """
+        Run an agent directly without task queue integration (UI operations only).
+
+        This executes an agent synchronously for UI-driven operations like
+        enhancement creation, agent creation, or task planning. The agent runs
+        outside the task queue system and returns results immediately.
+
+        This method is specifically designed for UI operations and should NOT
+        be used for:
+        - Workflow execution (use start_task instead)
+        - Background task processing
+        - Operations requiring cancellation support
+        - Operations requiring status tracking or auto-completion
+
+        Key differences from task-based invocation:
+        - Synchronous execution (blocks until complete)
+        - No task queue entry created
+        - No PID tracking or cancellation support
+        - No status extraction or auto-completion
+        - Custom output directory (not enhancement structure)
+        - Logs to .claude/logs/ (not enhancement logs)
+
+        Args:
+            agent_name: Name of agent to run (e.g., "product-analyst")
+            input_file: Path to input file for agent
+            output_dir: Directory where agent should write output
+            task_description: Description for logging (default: "UI-invoked task")
+            task_type: Task type for template selection (default: "analysis")
+
+        Returns:
+            Path to agent output directory
+
+        Raises:
+            RuntimeError: If agent execution fails
+
+        Example:
+            >>> # Generate enhancement specification
+            >>> output_dir = queue.run_agent_direct(
+            ...     agent_name="product-analyst",
+            ...     input_file=Path("context.md"),
+            ...     output_dir=Path("/tmp/enhancement/product-analyst"),
+            ...     task_description="Generate enhancement spec"
+            ... )
+            >>> spec_file = output_dir / "enhancement-spec.md"
+        """
+        try:
+            output = self._run_command(
+                "agents", "invoke-direct",
+                agent_name,
+                str(input_file),
+                str(output_dir),
+                task_description,
+                task_type
+            )
+
+            # Command returns output directory path on success
+            result_dir = Path(output.strip())
+
+            if not result_dir.exists():
+                raise RuntimeError(
+                    f"Agent '{agent_name}' completed but output directory not found: {result_dir}"
+                )
+
+            return result_dir
+
+        except RuntimeError as e:
+            # Re-raise with more context
+            raise RuntimeError(
+                f"Agent '{agent_name}' failed: {str(e)}\n"
+                f"Check logs in: {self.logs_dir}"
+            )
+
+    def run_agent_async(
+            self,
+            agent_name: str,
+            input_file: Path,
+            output_dir: Path,
+            task_description: str = "UI-invoked task",
+            task_type: str = "analysis",
+            on_success=None,
+            on_error=None
+    ):
+        """
+        Run an agent asynchronously (UI operations).
+
+        Uses the same async subprocess pattern as task/workflow execution.
+        """
+        import threading
+
+        def run_in_thread():
+            """Execute agent and poll for completion."""
+            try:
+                # Convert to relative paths
+                rel_input = PathUtils.relative_to_project(input_file, self.project_root)
+                rel_output = PathUtils.relative_to_project(output_dir, self.project_root)
+
+                # Use _run_command_async (same as task execution!)
+                process = self._run_command_async(
+                    "agents", "invoke-direct",
+                    agent_name,
+                    rel_input,
+                    rel_output,
+                    task_description,
+                    task_type
+                )
+
+                # Wait for process to complete
+                process.wait()
+
+                if process.returncode != 0:
+                    raise RuntimeError(f"Agent exited with code {process.returncode}")
+
+                # Success - we know where the output is
+                result_dir = output_dir
+
+                # Call success callback on main thread
+                if on_success:
+                    import tkinter as tk
+                    root = tk._default_root
+                    if root:
+                        root.after(0, lambda r=result_dir: on_success(r))
+                    else:
+                        on_success(result_dir)
+
+            except Exception as ex:
+                # Call error callback on main thread
+                if on_error:
+                    import tkinter as tk
+                    root = tk._default_root
+                    if root:
+                        root.after(0, lambda err=ex: on_error(err))
+                    else:
+                        on_error(ex)
+
+        # Start thread
+        thread = threading.Thread(target=run_in_thread, daemon=True)
+        thread.start()
 
     def get_agents_data(self) -> Optional[Dict]:
         """Get agents data from agents.json."""

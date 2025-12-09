@@ -9,19 +9,17 @@ from pathlib import Path
 import json
 
 from .base_dialog import BaseDialog
-from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
 from ..utils import to_slug, validate_slug
 
 
-class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
+class AgentDetailsDialog(BaseDialog):
     """Enhanced dialog for creating/editing agents (v5.0 - simplified)."""
 
-    def __init__(self, parent, queue_interface, settings=None, mode='create', agent_file=None):
-        # Initialize base classes
+    def __init__(self, parent, queue_interface, mode='create', agent_file=None):
+        # Initialize base class
         BaseDialog.__init__(self, parent,
                             "Create New Agent" if mode == 'create' else "Edit Agent",
                             800, 850)
-        ClaudeGeneratorMixin.__init__(self, settings)
 
         self.queue = queue_interface
         self.mode = mode
@@ -146,14 +144,7 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
         role_combo.pack(fill="x", pady=(5, 15))
 
         # Agent Details
-        details_header = ttk.Frame(parent)
-        details_header.pack(fill="x", pady=(0, 5))
-
-        ttk.Label(details_header, text="Agent Instructions: *", font=('Arial', 10, 'bold')).pack(side="left")
-
-        api_key = self.settings.get_claude_api_key() if self.settings else None
-        if api_key:
-            ttk.Button(details_header, text="Generate with Claude", command=self.generate_details).pack(side="right")
+        ttk.Label(parent, text="Agent Instructions: *", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
 
         ttk.Label(
             parent,
@@ -427,49 +418,6 @@ class AgentDetailsDialog(BaseDialog, ClaudeGeneratorMixin):
             self.on_name_changed()
         else:
             self.file_entry.config(state='normal')
-
-    def generate_details(self):
-        """Generate agent details with AI."""
-        name = self.name_var.get().strip()
-        description = self.description_var.get().strip()
-        role = self.role_var.get().strip()
-
-        if not name or not description:
-            messagebox.showwarning("Missing Info", "Enter name and description first.")
-            return
-
-        context = f"""Agent: {name}
-Description: {description}
-Role: {role}
-
-Generate comprehensive agent instructions with:
-- Role and Purpose
-- Core Responsibilities  
-- Key Tasks
-- Output Standards
-- Success Criteria
-- Scope Boundaries (DO/DON'T)
-
-Note: This agent will be used in workflows. Focus on what the agent DOES, not on workflow orchestration."""
-
-        # Using ClaudeGeneratorMixin
-        self.call_claude_async(
-            context=context,
-            system_prompt=None,
-            message="Generating agent instructions",
-            estimate="30-60 seconds",
-            on_success=self.on_generation_complete,
-            on_error=self.on_generation_error
-        )
-
-    def on_generation_complete(self, content: str):
-        """Handle successful generation."""
-        self.details_text.delete('1.0', tk.END)
-        self.details_text.insert('1.0', content)
-
-    def on_generation_error(self, error: Exception):
-        """Handle generation error."""
-        messagebox.showerror("Error", f"AI generation failed: {error}")
 
     def validate(self) -> bool:
         """Validate agent form before saving."""

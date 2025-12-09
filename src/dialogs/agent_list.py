@@ -111,7 +111,6 @@ class AgentListDialog(BaseDialog):
         dialog = AgentDetailsDialog(
             self.dialog,
             self.queue,
-            self.settings,
             mode='create'
         )
         if dialog.result:
@@ -132,7 +131,6 @@ class AgentListDialog(BaseDialog):
         dialog = AgentDetailsDialog(
             self.dialog,
             self.queue,
-            self.settings,
             mode='edit',
             agent_file=agent_file
         )

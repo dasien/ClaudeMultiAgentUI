@@ -1,15 +1,17 @@
 """
 Enhancement Generator Dialog - Create enhancement files with Claude API assistance.
+Supports multiple source types: local files, GitHub issues, and web URLs.
 """
 
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from pathlib import Path
-from datetime import date
-
+from typing import List
+from .working import WorkingDialog
 from .base_dialog import BaseDialog
 from .mixins.claude_generator_mixin import ClaudeGeneratorMixin
-from ..utils import to_slug, validate_slug, PathUtils
+from ..models import EnhancementSource, SourceType
+from ..utils import to_slug, validate_slug, PathUtils, WebUtils
 
 
 class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
@@ -21,10 +23,10 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         ClaudeGeneratorMixin.__init__(self, settings)
 
         self.queue = queue_interface
-        self.reference_files = []
+        self.sources: List[EnhancementSource] = []
 
         self.build_ui()
-        self.show()  # Changed from wait() to show()
+        self.show()
 
     def build_ui(self):
         """Build the dialog UI."""
@@ -38,7 +40,7 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
             font=('Arial', 12, 'bold')
         ).pack(pady=(0, 15))
 
-        # Enhancement Title - Using BaseDialog helper
+        # Enhancement Title
         _, self.title_entry, self.title_var = self.create_label_entry_pair(
             main_frame,
             "Enhancement Title",
@@ -87,30 +89,43 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
 
         ttk.Button(dir_frame, text="Browse...", command=self.browse_directory).pack(side="left", padx=(5, 0))
 
-        # Reference Files
-        ttk.Label(main_frame, text="Reference Files (optional):").pack(anchor="w", pady=(0, 5))
+        # Sources Section (replaces Reference Files)
+        ttk.Label(main_frame, text="Sources (optional):").pack(anchor="w", pady=(0, 5))
 
-        ref_frame = ttk.Frame(main_frame)
-        ref_frame.pack(fill="x", pady=(0, 10))
+        sources_frame = ttk.Frame(main_frame)
+        sources_frame.pack(fill="x", pady=(0, 10))
 
-        # List of reference files
-        list_frame = ttk.Frame(ref_frame)
+        # Listbox for sources
+        list_frame = ttk.Frame(sources_frame)
         list_frame.pack(side="left", fill="both", expand=True)
 
-        self.ref_listbox = tk.Listbox(list_frame, height=5, relief='flat', borderwidth=1, highlightthickness=1)
-        ref_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.ref_listbox.yview)
-        self.ref_listbox.configure(yscrollcommand=ref_scroll.set)
+        self.sources_listbox = tk.Listbox(list_frame, height=5, relief='flat', borderwidth=1, highlightthickness=1)
+        sources_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.sources_listbox.yview)
+        self.sources_listbox.configure(yscrollcommand=sources_scroll.set)
 
-        self.ref_listbox.pack(side="left", fill="both", expand=True)
-        ref_scroll.pack(side="right", fill="y")
+        self.sources_listbox.pack(side="left", fill="both", expand=True)
+        sources_scroll.pack(side="right", fill="y")
 
-        # Buttons for reference files
-        ref_buttons = ttk.Frame(ref_frame)
-        ref_buttons.pack(side="right", fill="y", padx=(5, 0))
+        # Buttons for sources
+        sources_buttons = ttk.Frame(sources_frame)
+        sources_buttons.pack(side="right", fill="y", padx=(5, 0))
 
-        ttk.Button(ref_buttons, text="Add Files...", command=self.add_reference_files, width=12).pack(pady=2)
-        ttk.Button(ref_buttons, text="Remove", command=self.remove_reference_file, width=12).pack(pady=2)
-        ttk.Button(ref_buttons, text="Clear All", command=self.clear_reference_files, width=12).pack(pady=2)
+        # Add Source dropdown menu
+        self.add_source_menu = tk.Menu(self.dialog, tearoff=0)
+        self.add_source_menu.add_command(label="Add File(s)...", command=self.add_file_sources)
+        self.add_source_menu.add_command(label="Add GitHub Issue...", command=self.add_github_source)
+        self.add_source_menu.add_command(label="Add Web URL...", command=self.add_web_source)
+
+        self.add_source_btn = ttk.Button(
+            sources_buttons,
+            text="Add Source ▼",
+            command=self.show_add_source_menu,
+            width=15
+        )
+        self.add_source_btn.pack(pady=2)
+
+        ttk.Button(sources_buttons, text="Remove", command=self.remove_source, width=15).pack(pady=2)
+        ttk.Button(sources_buttons, text="Clear All", command=self.clear_sources, width=15).pack(pady=2)
 
         # Description
         desc_header = ttk.Frame(main_frame)
@@ -144,7 +159,7 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         )
         self.generate_btn.pack(pady=10)
 
-        # Bottom buttons - Using BaseDialog helper
+        # Bottom buttons
         self.create_button_frame(main_frame, [("Cancel", self.cancel)])
 
         ttk.Label(main_frame, text="* Required fields", font=('Arial', 8), foreground='gray').pack(pady=(10, 0))
@@ -152,14 +167,14 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         # Validate initially
         self.validate_form()
 
-        # Set focus - Using BaseDialog helper
+        # Set focus
         self.set_focus(self.title_entry)
 
     def on_title_changed(self, *args):
         """Auto-generate filename from title if enabled."""
         if self.auto_filename_var.get():
             title = self.title_var.get().strip()
-            slug = to_slug(title)  # Using utility function!
+            slug = to_slug(title)
             self.filename_var.set(slug)
         self.validate_form()
 
@@ -182,8 +197,26 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         if directory:
             self.directory_var.set(directory)
 
-    def add_reference_files(self):
-        """Add reference files."""
+    # =========================================================================
+    # Source Management
+    # =========================================================================
+
+    def show_add_source_menu(self):
+        """Show the add source dropdown menu."""
+        try:
+            # Position menu below the button
+            x = self.add_source_btn.winfo_rootx()
+            y = self.add_source_btn.winfo_rooty() + self.add_source_btn.winfo_height()
+            self.add_source_menu.post(x, y)
+        except:
+            # Fallback to mouse position
+            self.add_source_menu.post(
+                self.dialog.winfo_pointerx(),
+                self.dialog.winfo_pointery()
+            )
+
+    def add_file_sources(self):
+        """Add local file sources."""
         files = filedialog.askopenfilenames(
             parent=self.dialog,
             title="Select Reference Files",
@@ -192,29 +225,149 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
                 ("All Files", "*.*"),
                 ("Markdown", "*.md"),
                 ("Python", "*.py"),
-                ("Text", "*.txt")
+                ("Text", "*.txt"),
+                ("JSON", "*.json")
             ]
         )
 
         for file in files:
-            if file not in self.reference_files:
-                self.reference_files.append(file)
-                # Using PathUtils!
-                rel_path = PathUtils.relative_or_name(Path(file), self.queue.project_root)
-                self.ref_listbox.insert(tk.END, rel_path)
+            rel_path = PathUtils.relative_or_name(Path(file), self.queue.project_root)
+            source = EnhancementSource.from_file(file, rel_path)
+            self.sources.append(source)
+            self.sources_listbox.insert(tk.END, f"{source.get_icon()} {source.display_name}")
 
-    def remove_reference_file(self):
-        """Remove selected reference file."""
-        selection = self.ref_listbox.curselection()
+    def add_github_source(self):
+        """Add GitHub issue source."""
+        dialog = tk.Toplevel(self.dialog)
+        dialog.title("Add GitHub Issue")
+        dialog.geometry("500x150")
+        dialog.transient(self.dialog)
+        dialog.grab_set()
+
+        # Center dialog
+        dialog.update_idletasks()
+        x = self.dialog.winfo_x() + (self.dialog.winfo_width() // 2) - (dialog.winfo_width() // 2)
+        y = self.dialog.winfo_y() + (self.dialog.winfo_height() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill="both", expand=True)
+
+        ttk.Label(main_frame, text="GitHub Issue URL:").pack(anchor="w", pady=(0, 5))
+        url_var = tk.StringVar()
+        url_entry = ttk.Entry(main_frame, textvariable=url_var, width=60)
+        url_entry.pack(fill="x", pady=(0, 10))
+        url_entry.focus()
+
+        ttk.Label(
+            main_frame,
+            text="Example: https://github.com/owner/repo/issues/123",
+            font=('Arial', 8),
+            foreground='gray'
+        ).pack(anchor="w", pady=(0, 10))
+
+        def add_url():
+            url = url_var.get().strip()
+            if not url:
+                messagebox.showwarning("Missing URL", "Please enter a GitHub issue URL", parent=dialog)
+                return
+
+            # Validate using WebUtils
+            if not WebUtils.is_github_issue_url(url):
+                messagebox.showwarning(
+                    "Invalid URL",
+                    "Please enter a valid GitHub issue URL\n"
+                    "Example: https://github.com/owner/repo/issues/123",
+                    parent=dialog
+                )
+                return
+
+            # Extract issue number for display
+            parsed = WebUtils.parse_github_issue_url(url)
+            if parsed:
+                _, _, issue_num = parsed
+                source = EnhancementSource.from_github_issue(url, f"#{issue_num}")
+                self.sources.append(source)
+                self.sources_listbox.insert(tk.END, f"{source.get_icon()} {source.display_name}")
+                dialog.destroy()
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack()
+        ttk.Button(button_frame, text="Add", command=add_url, width=12).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy, width=12).pack(side="left", padx=5)
+
+        url_entry.bind('<Return>', lambda e: add_url())
+
+    def add_web_source(self):
+        """Add web URL source."""
+        dialog = tk.Toplevel(self.dialog)
+        dialog.title("Add Web URL")
+        dialog.geometry("500x180")
+        dialog.transient(self.dialog)
+        dialog.grab_set()
+
+        # Center dialog
+        dialog.update_idletasks()
+        x = self.dialog.winfo_x() + (self.dialog.winfo_width() // 2) - (dialog.winfo_width() // 2)
+        y = self.dialog.winfo_y() + (self.dialog.winfo_height() // 2) - (dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+
+        main_frame = ttk.Frame(dialog, padding=20)
+        main_frame.pack(fill="both", expand=True)
+
+        ttk.Label(main_frame, text="Web Page URL:").pack(anchor="w", pady=(0, 5))
+        url_var = tk.StringVar()
+        url_entry = ttk.Entry(main_frame, textvariable=url_var, width=60)
+        url_entry.pack(fill="x", pady=(0, 10))
+        url_entry.focus()
+
+        ttk.Label(
+            main_frame,
+            text="Example: https://example.com/documentation/feature",
+            font=('Arial', 8),
+            foreground='gray'
+        ).pack(anchor="w", pady=(0, 10))
+
+        def add_url():
+            url = url_var.get().strip()
+            if not url:
+                messagebox.showwarning("Missing URL", "Please enter a web page URL", parent=dialog)
+                return
+
+            # Validate using WebUtils
+            valid, error = WebUtils.validate_url(url)
+            if not valid:
+                messagebox.showwarning("Invalid URL", error, parent=dialog)
+                return
+
+            source = EnhancementSource.from_web_url(url)
+            self.sources.append(source)
+            self.sources_listbox.insert(tk.END, f"{source.get_icon()} {source.display_name}")
+            dialog.destroy()
+
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack()
+        ttk.Button(button_frame, text="Add", command=add_url, width=12).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy, width=12).pack(side="left", padx=5)
+
+        url_entry.bind('<Return>', lambda e: add_url())
+
+    def remove_source(self):
+        """Remove selected source."""
+        selection = self.sources_listbox.curselection()
         if selection:
             index = selection[0]
-            self.ref_listbox.delete(index)
-            del self.reference_files[index]
+            self.sources_listbox.delete(index)
+            del self.sources[index]
 
-    def clear_reference_files(self):
-        """Clear all reference files."""
-        self.ref_listbox.delete(0, tk.END)
-        self.reference_files.clear()
+    def clear_sources(self):
+        """Clear all sources."""
+        self.sources_listbox.delete(0, tk.END)
+        self.sources.clear()
+
+    # =========================================================================
+    # Form Validation
+    # =========================================================================
 
     def validate_form(self):
         """Validate form and enable/disable generate button."""
@@ -224,11 +377,11 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
 
         # Check required fields
         has_title = bool(title)
-        has_filename = bool(filename) and validate_slug(filename)  # Using utility!
+        has_filename = bool(filename) and validate_slug(filename)
         has_description = bool(description)
 
         # Update filename validation label
-        if filename and not validate_slug(filename):  # Using utility!
+        if filename and not validate_slug(filename):
             self.filename_validation_label.config(
                 text="✗ Invalid format (use lowercase and hyphens only)",
                 foreground='red'
@@ -253,51 +406,107 @@ class CreateEnhancementDialog(BaseDialog, ClaudeGeneratorMixin):
         # Schedule next validation
         self.dialog.after(500, self.validate_form)
 
+    # =========================================================================
+    # Enhancement Generation
+    # =========================================================================
+
     def generate_enhancement(self):
-        """Generate enhancement file with Claude API."""
+        """Generate enhancement using Product Analyst agent."""
         # Gather form data
         title = self.title_var.get().strip()
         filename = self.filename_var.get().strip()
         directory = self.directory_var.get().strip()
         description = self.description_text.get('1.0', tk.END).strip()
 
-        # Build context for Claude
-        context = self.build_generation_context(title, description)
+        # Build context document with all sources
+        context_content = self.build_generation_context(title, description)
 
-        system_prompt = """You are an expert technical writer creating detailed enhancement specifications.
+        try:
+            import shutil
 
-Generate a comprehensive enhancement specification document following this structure:
+            # Use staging directory within enhancements
+            staging_dir = self.queue.project_root / "enhancements" / ".staging" / filename
 
----
-slug: [filename-slug]
-status: NEW
-created: [YYYY-MM-DD]
-author: [Author Name]
-priority: medium
----
+            # Clean up any previous staging for this enhancement
+            if staging_dir.exists():
+                shutil.rmtree(staging_dir)
 
-# Enhancement: [Title]
+            staging_dir.mkdir(parents=True, exist_ok=True)
 
-## Overview
-**Goal:** One sentence describing what this enhancement accomplishes.
+            # Write context file
+            context_file = staging_dir / f"{filename}.md"
+            context_file.write_text(context_content, encoding='utf-8')
 
-**User Story:**
-As a [type of user], I want [goal] so that [benefit].
+            # Show working dialog
+            working = WorkingDialog(
+                self.dialog,
+                message="Generating Enhancement",
+                estimated_time="30-60 seconds"
+            )
+            working.show()
+            self.dialog.update()
 
-[Include all standard sections: Context, Requirements, Constraints, Testing, etc.]
+            # Define success handler
+            def on_success(result_dir):
+                """Handle successful agent execution."""
+                try:
+                    # Agent writes to: staging_dir/product-analyst/required_output/output.md
+                    output_file = staging_dir / "product-analyst" / "required_output" / "output.md"
 
-Generate detailed, comprehensive content for each section. Be specific and actionable."""
+                    if not output_file.exists():
+                        # Try to find output in required_output directory
+                        required_output_dir = staging_dir / "product-analyst" / "required_output"
+                        if required_output_dir.exists():
+                            output_file = PathUtils.find_output_file(required_output_dir)
+                        else:
+                            raise FileNotFoundError(f"No output found in {staging_dir / 'product-analyst'}")
 
-        # Using ClaudeGeneratorMixin - Much simpler!
-        self.call_claude_async(
-            context=context,
-            system_prompt=system_prompt,
-            message="Generating enhancement specification",
-            estimate="30-60 seconds",
-            # timeout will use configured value from settings
-            on_success=lambda content: self.on_generation_complete(content, title, filename, directory),
-            on_error=self.on_generation_error
-        )
+                    # Read generated content
+                    content = output_file.read_text(encoding='utf-8')
+
+                    # Close working dialog
+                    working.close()
+
+                    # Show preview dialog
+                    self.show_preview(content, title, filename, directory, staging_dir)
+
+                except Exception as e:
+                    working.close()
+                    # Cleanup staging on error
+                    if staging_dir.exists():
+                        shutil.rmtree(staging_dir, ignore_errors=True)
+                    messagebox.showerror(
+                        "Error",
+                        f"Failed to read agent output:\n\n{e}"
+                    )
+
+            # Define error handler
+            def on_error(error):
+                """Handle agent execution error."""
+                working.close()
+                # Cleanup staging on error
+                if staging_dir.exists():
+                    shutil.rmtree(staging_dir, ignore_errors=True)
+                messagebox.showerror(
+                    "Generation Error",
+                    f"Failed to generate enhancement:\n\n{error}"
+                )
+
+            # Run agent asynchronously
+            self.queue.run_agent_async(
+                agent_name="product-analyst",
+                input_file=context_file,
+                output_dir=staging_dir,
+                task_description=f"Generate enhancement spec: {title}",
+                on_success=on_success,
+                on_error=on_error
+            )
+
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Failed to prepare enhancement generation:\n\n{e}"
+            )
 
     def on_generation_complete(self, content: str, title: str, filename: str, directory: str):
         """Handle successful generation."""
@@ -308,111 +517,78 @@ Generate detailed, comprehensive content for each section. Be specific and actio
         messagebox.showerror("Generation Error", f"Failed to generate enhancement:\n\n{error}")
 
     def build_generation_context(self, title: str, description: str) -> str:
-        """Build context for Claude API."""
+        """Build context for Claude API including all sources."""
         context_parts = [
             f"Enhancement Title: {title}",
             f"\nDescription: {description}"
         ]
 
-        # Add reference files content
-        if self.reference_files:
+        if self.sources:
             context_parts.append("\n\nReference Documents:")
-            for file_path in self.reference_files:
-                try:
-                    path = Path(file_path)
-                    if path.exists() and path.stat().st_size < 100_000:
-                        with open(path, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                            if len(content) > 10_000:
-                                content = content[:10_000] + "\n...[truncated]"
 
-                            # Using PathUtils!
-                            rel_path = PathUtils.relative_or_name(path, self.queue.project_root)
-                            context_parts.append(f"\n--- {rel_path} ---")
-                            context_parts.append(content)
+            for source in self.sources:
+                try:
+                    if source.type == SourceType.FILE:
+                        # Read local file
+                        path = Path(source.value)
+                        if path.exists() and path.stat().st_size < WebUtils.MAX_CONTENT_LENGTH:
+                            with open(path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                                if len(content) > WebUtils.TRUNCATE_THRESHOLD:
+                                    content = content[:WebUtils.TRUNCATE_THRESHOLD] + "\n...[truncated]"
+                                context_parts.append(f"\n--- {source.display_name} ---")
+                                context_parts.append(content)
+
+                    elif source.type == SourceType.GITHUB_ISSUE:
+                        # Fetch GitHub issue content using WebUtils
+                        issue_title, body = WebUtils.fetch_github_issue(source.value)
+                        content = WebUtils.format_github_issue_content(issue_title, body)
+                        if len(content) > WebUtils.TRUNCATE_THRESHOLD:
+                            content = content[:WebUtils.TRUNCATE_THRESHOLD] + "\n...[truncated]"
+                        context_parts.append(f"\n--- {source.display_name} ---")
+                        context_parts.append(content)
+
+                    elif source.type == SourceType.WEB_URL:
+                        # Fetch web page content using WebUtils (already truncates internally)
+                        content = WebUtils.fetch_web_page(source.value)
+                        context_parts.append(f"\n--- {source.display_name} ---")
+                        context_parts.append(content)
+
                 except Exception as e:
-                    print(f"Could not read reference file {file_path}: {e}")
+                    # Log error but continue with other sources
+                    print(f"Could not fetch source {source.display_name}: {e}")
+                    context_parts.append(f"\n--- {source.display_name} (failed to fetch) ---")
 
         return "\n".join(context_parts)
 
-    def show_preview(self, content: str, title: str, filename: str, directory: str):
-        """Show preview of generated enhancement."""
-        preview = tk.Toplevel(self.dialog)
-        preview.title("Preview Enhancement")
-        preview.geometry("900x700")
-        preview.transient(self.dialog)
-        preview.grab_set()
+    def show_preview(self, content: str, title: str, filename: str, directory: str, staging_dir: Path):
+        """
+        Show preview dialog for generated enhancement.
 
-        # Center - could use BaseDialog if preview was a BaseDialog subclass
-        preview.update_idletasks()
-        x = self.dialog.winfo_x() + (self.dialog.winfo_width() // 2) - (preview.winfo_width() // 2)
-        y = self.dialog.winfo_y() + (self.dialog.winfo_height() // 2) - (preview.winfo_height() // 2)
-        preview.geometry(f"+{x}+{y}")
+        Args:
+            content: Generated enhancement content
+            title: Enhancement title
+            filename: Enhancement filename (slug)
+            directory: Final output directory
+            staging_dir: Staging directory to cleanup
+        """
+        from .enhancement_preview import EnhancementPreviewDialog
 
-        main_frame = ttk.Frame(preview, padding=10)
-        main_frame.pack(fill="both", expand=True)
+        preview_dialog = EnhancementPreviewDialog(
+            parent=self.dialog,
+            queue_interface=self.queue,
+            settings=self.settings,
+            content=content,
+            title=title,
+            filename=filename,
+            output_directory=directory,
+            staging_dir=staging_dir
+        )
 
-        ttk.Label(
-            main_frame,
-            text=f"Preview: {title}",
-            font=('Arial', 12, 'bold')
-        ).pack(pady=(0, 10))
-
-        # Text area
-        text_frame = ttk.Frame(main_frame)
-        text_frame.pack(fill="both", expand=True, pady=(0, 10))
-
-        text_widget = tk.Text(text_frame, wrap="word", font=('Courier', 9))
-        text_scroll_y = ttk.Scrollbar(text_frame, orient="vertical", command=text_widget.yview)
-        text_scroll_x = ttk.Scrollbar(text_frame, orient="horizontal", command=text_widget.xview)
-        text_widget.configure(yscrollcommand=text_scroll_y.set, xscrollcommand=text_scroll_x.set)
-
-        text_widget.grid(row=0, column=0, sticky='nsew')
-        text_scroll_y.grid(row=0, column=1, sticky='ns')
-        text_scroll_x.grid(row=1, column=0, sticky='ew')
-
-        text_frame.columnconfigure(0, weight=1)
-        text_frame.rowconfigure(0, weight=1)
-
-        text_widget.insert('1.0', content)
-
-        # Buttons
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(pady=10)
-
-        def save_enhancement():
-            try:
-                # Create directory structure
-                output_dir = Path(directory) / filename
-                output_dir.mkdir(parents=True, exist_ok=True)
-
-                # Save file
-                output_file = output_dir / f"{filename}.md"
-
-                # Get potentially edited content
-                final_content = text_widget.get('1.0', tk.END).strip()
-
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(final_content)
-
-                # Use BaseDialog.close() with result
-                self.close(result=str(output_file))
-                preview.destroy()
-
-            except Exception as e:
-                messagebox.showerror("Save Error", f"Failed to save enhancement:\n\n{e}")
-
-        def regenerate():
-            preview.destroy()
+        # Check result after preview dialog closes
+        if preview_dialog.result == "REGENERATE":
+            # User clicked regenerate - run generation again
             self.generate_enhancement()
-
-        ttk.Button(button_frame, text="💾 Save", command=save_enhancement, width=15).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="🔄 Regenerate", command=regenerate, width=15).pack(side="left", padx=5)
-        ttk.Button(button_frame, text="Cancel", command=preview.destroy, width=15).pack(side="left", padx=5)
-
-        ttk.Label(
-            main_frame,
-            text="You can edit the content above before saving",
-            font=('Arial', 8),
-            foreground='gray'
-        ).pack()
+        elif preview_dialog.result:
+            # User saved - close creation dialog and return saved file path
+            self.close(result=preview_dialog.result)

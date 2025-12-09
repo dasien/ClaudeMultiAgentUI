@@ -132,15 +132,15 @@ class MainView:
         # Enhancements menu (requires connection)
         enhancements_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Enhancements", menu=enhancements_menu, state="disabled")
-        enhancements_menu.add_command(label="Generate...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
+        enhancements_menu.add_command(label="Create...", command=self.show_enhancement_generator, accelerator="Ctrl+E")
         self.menus['enhancements'] = menubar.index("Enhancements")
 
         # Tasks menu (requires connection)
         tasks_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tasks", menu=tasks_menu, state="disabled")
-        tasks_menu.add_command(label="Create Task...", command=self.create_task, accelerator="Ctrl+N")
+        tasks_menu.add_command(label="Create...", command=self.create_task, accelerator="Ctrl+N")
         tasks_menu.add_separator()
-        tasks_menu.add_command(label="Cancel All Tasks", command=self.cancel_all_tasks)
+        tasks_menu.add_command(label="Cancel All", command=self.cancel_all_tasks)
         tasks_menu.add_command(label="Clear Finished...", command=self.clear_finished_tasks)
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Refresh List", command=self.refresh, accelerator="F5")
@@ -155,7 +155,7 @@ class MainView:
         # Skills menu (requires connection)
         skills_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Skills", menu=skills_menu, state="disabled")
-        skills_menu.add_command(label="Browse Skills...", command=self.show_skills_viewer, accelerator="Ctrl+K")
+        skills_menu.add_command(label="View...", command=self.show_skills_viewer, accelerator="Ctrl+K")
         skills_menu.add_separator()
         skills_menu.add_command(label="View Agent Skills...", command=self.show_agent_skills)
         self.menus['skills'] = menubar.index("Skills")
@@ -620,7 +620,7 @@ class MainView:
             return
 
         from .dialogs import CreateTaskDialog
-        dialog = CreateTaskDialog(self.root, self.queue, self.settings)
+        dialog = CreateTaskDialog(self.root, self.queue)
 
         if dialog.result:
             if dialog.should_start:
