@@ -318,7 +318,8 @@ class MainView:
 
         self.task_tree.tag_configure('pending', background='white')
         self.task_tree.tag_configure('active', background='#FFF9E6')
-        self.task_tree.tag_configure('completed', background='#E8F5E9')
+        self.task_tree.tag_configure('completed', background='#E8F5E9')  # Green - success
+        self.task_tree.tag_configure('completed_blocked', background='#FFF3CD')  # Yellow - blocked/warning
         self.task_tree.tag_configure('failed', background='#FFEBEE')
 
     def update_ui_state(self):
@@ -416,6 +417,48 @@ class MainView:
             if not silent:
                 messagebox.showerror("Connection Error", f"Failed to connect: {e}")
 
+    def is_blocked_status(self, task):
+        """Check if a completed task has a blocked/warning status.
+
+        Args:
+            task: Task object to check
+
+        Returns:
+            bool: True if task completed with a blocked/warning status
+        """
+        if task.status != 'completed':
+            return False
+
+        result = task.result or ''
+
+        # Check for explicit BLOCKED status
+        if result.startswith('BLOCKED'):
+            return True
+
+        # If task is part of a workflow, check if status has a defined transition
+        if task.metadata and isinstance(task.metadata, dict):
+            workflow_name = task.metadata.get('workflow_name')
+            workflow_step = task.metadata.get('workflow_step')
+
+            if workflow_name and workflow_step is not None:
+                # Get workflow definition and check if result status has a transition
+                try:
+                    workflow_info = self.queue.get_workflow_template(workflow_name)
+                    if workflow_info and 'steps' in workflow_info:
+                        step_index = int(workflow_step)
+                        if step_index < len(workflow_info['steps']):
+                            step = workflow_info['steps'][step_index]
+                            on_status = step.get('on_status', {})
+
+                            # If the result status is NOT in the defined transitions, it's blocked
+                            if result and result not in on_status:
+                                return True
+                except:
+                    # If we can't determine workflow status, assume not blocked
+                    pass
+
+        return False
+
     def refresh(self):
         """Refresh task list."""
         if self.state.connection_state != ConnectionState.CONNECTED:
@@ -464,6 +507,15 @@ class MainView:
                     workflow_name = task.metadata.get('workflow_name', '')
                     enhancement_title = task.metadata.get('enhancement_title', '')
 
+                # Determine tag based on status and whether it's blocked
+                if task.status.lower() == 'completed':
+                    if self.is_blocked_status(task):
+                        tag = 'completed_blocked'
+                    else:
+                        tag = 'completed'
+                else:
+                    tag = task.status.lower()
+
                 item_id = self.task_tree.insert(
                     '',
                     tk.END,
@@ -475,7 +527,7 @@ class MainView:
                         task.assigned_agent,
                         status_display
                     ),
-                    tags=(task.status.lower(),)
+                    tags=(tag,)
                 )
                 task_id_to_item[task.id] = item_id
 
