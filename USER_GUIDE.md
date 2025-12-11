@@ -410,6 +410,25 @@ A **task** represents work assigned to an agent. Each task:
 - Log file created in enhancement's `logs/` directory
 - If part of workflow, metadata includes workflow context
 
+### Re-Running a Task
+
+**When to use**: A task completed but had issues (e.g., compile errors), and you want to run it again after fixing the problems.
+
+**How to re-run**:
+
+1. Right-click completed or failed task → **Re-Run Task**
+2. Confirm the re-run action
+3. Task moves back to pending state
+4. Start the task normally (or it will auto-start if in a workflow)
+
+**What happens**:
+- Task status resets to "Pending"
+- Previous execution data is preserved in history
+- Task can be restarted with same parameters
+- Useful for iterative debugging of workflow steps
+
+**Note**: You cannot re-run pending or active tasks - only completed or failed ones.
+
 ### Viewing Task Details
 
 **Double-click any task** or **Right-click → View Details...**

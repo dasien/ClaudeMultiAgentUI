@@ -122,6 +122,10 @@ class CMATInterface:
             args.append(reason)
         self._run_command(*args)
 
+    def rerun_task(self, task_id: str):
+        """Re-run a completed or failed task."""
+        self._run_command("queue", "rerun", task_id)
+
     def cancel_all_tasks(self, reason: str = ""):
         """Cancel all pending and active tasks."""
         args = ["queue", "cancel-all"]

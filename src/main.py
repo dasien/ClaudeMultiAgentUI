@@ -619,9 +619,12 @@ class MainView:
             if task:
                 can_start = task.status == 'pending'
                 can_cancel = task.status in ['pending', 'active']
+                can_rerun = task.status not in ['pending', 'active']
 
                 menu.add_command(label="Start Task", command=self.start_task,
                                  state="normal" if can_start else "disabled")
+                menu.add_command(label="Re-Run Task", command=self.rerun_task,
+                                 state="normal" if can_rerun else "disabled")
                 menu.add_command(label="Cancel Task", command=self.cancel_task,
                                  state="normal" if can_cancel else "disabled")
                 menu.add_separator()
@@ -708,6 +711,24 @@ class MainView:
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to start: {e}")
+
+    def rerun_task(self):
+        """Re-run a completed or failed task."""
+        task = self.get_selected_task()
+        if not task:
+            messagebox.showwarning("No Selection", "Select a task to re-run.")
+            return
+
+        if task.status in ['pending', 'active']:
+            messagebox.showwarning("Invalid Status", "Cannot re-run pending or active tasks.")
+            return
+
+        if messagebox.askyesno("Confirm Re-Run", f"Re-run task {task.id}?\n\nThis will move it back to pending and restart execution."):
+            try:
+                self.queue.rerun_task(task.id)
+                self.refresh()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to re-run: {e}")
 
     def cancel_task(self):
         """Cancel selected task."""
