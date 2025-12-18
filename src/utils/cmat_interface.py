@@ -865,3 +865,17 @@ class CMATInterface:
         import re
         match = re.match(r'^enhancements/([^/]+)/', source_file)
         return match.group(1) if match else None
+
+    # =========================================================================
+    # SERVICE ACCESSORS (v8.2+ Python API)
+    # =========================================================================
+
+    @property
+    def learnings(self):
+        """Access the learnings service (RAG system)."""
+        return self.cmat.learnings
+
+    @property
+    def models(self):
+        """Access the models service (Claude model management)."""
+        return self.cmat.models
