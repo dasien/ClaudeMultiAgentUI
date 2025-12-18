@@ -48,12 +48,12 @@ class ConnectDialog(BaseDialog):
         self.validation_frame = ttk.LabelFrame(main_frame, text="System Validation", padding=10)
         self.validation_frame.pack(fill="both", expand=True, pady=(0, 20))
 
-        # Validation items
+        # Validation items (updated for Python CMAT v8.2+)
         self.validation_items = {
             'project_root': ttk.Label(self.validation_frame, text="○ Project root directory", foreground='gray'),
-            'cmat_script': ttk.Label(self.validation_frame, text="○ CMAT script (.claude/scripts/cmat.sh)",
+            'cmat_package': ttk.Label(self.validation_frame, text="○ CMAT Python package (.claude/cmat/__init__.py)",
                                      foreground='gray'),
-            'queue_file': ttk.Label(self.validation_frame, text="○ Task queue (.claude/queues/task_queue.json)",
+            'queue_file': ttk.Label(self.validation_frame, text="○ Task queue (.claude/data/task_queue.json)",
                                     foreground='gray'),
             'skills': ttk.Label(self.validation_frame, text="○ Skills system (.claude/skills/skills.json)",
                                 foreground='gray'),
@@ -110,11 +110,14 @@ class ConnectDialog(BaseDialog):
 
         project_root = Path(path_str)
 
-        # Validation checks (for UI display only - actual validation uses manifest)
+        # Validation checks (updated for Python CMAT v8.2+)
         checks = {
             'project_root': project_root.exists() and project_root.is_dir(),
-            'cmat_script': (project_root / ".claude/scripts/cmat.sh").exists(),
-            'queue_file': (project_root / ".claude/queues/task_queue.json").exists(),
+            'cmat_package': (project_root / ".claude/cmat/__init__.py").exists(),
+            'queue_file': (
+                (project_root / ".claude/data/task_queue.json").exists() or
+                (project_root / ".claude/queues/task_queue.json").exists()  # Fallback to old location
+            ),
             'skills': (project_root / ".claude/skills/skills.json").exists(),
             'agents': (project_root / ".claude/agents/agents.json").exists(),
         }
@@ -170,7 +173,6 @@ class ConnectDialog(BaseDialog):
     def connect(self):
         """Connect to project."""
         project_root = Path(self.path_var.get())
-        cmat_script = project_root / ".claude/scripts/cmat.sh"
 
-        # Use BaseDialog.close() with result
-        self.close(result=str(cmat_script))
+        # For Python CMAT v8.2+, return project root instead of script path
+        self.close(result=str(project_root))

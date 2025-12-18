@@ -1,90 +1,70 @@
 """
-CMAT interface for communicating with the cmat.sh script system.
-Version 5.0 - Updated for workflow-based orchestration.
+CMAT interface for communicating with the CMAT Python API.
+Version 8.0 - Direct Python API integration (no subprocess calls).
 """
 
+import sys
 import json
-import subprocess
+import threading
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
-import re
+from datetime import datetime
 
 from ..models import Task, AgentStatus, QueueState
 from .path_utils import PathUtils
 
-class CMATInterface:
-    """Interface to the cmat.sh command system (v5.0+)."""
 
-    def __init__(self, cmat_script_path: str):
-        """Initialize the queue interface.
+class CMATInterface:
+    """Direct Python interface to CMAT v8.2+ system."""
+
+    def __init__(self, project_root: str):
+        """Initialize the CMAT interface.
 
         Args:
-            cmat_script_path: Path to cmat.sh
+            project_root: Path to project root directory (contains .claude/)
         """
-        self.script_path = Path(cmat_script_path)
+        self.project_root = Path(project_root)
 
-        if not self.script_path.exists():
-            raise FileNotFoundError(f"CMAT script not found: {self.script_path}")
+        # Validate project structure
+        claude_dir = self.project_root / ".claude"
+        if not claude_dir.exists():
+            raise FileNotFoundError(f"No .claude directory found in {self.project_root}")
 
-        # Derive paths
-        self.project_root = self._find_project_root()
-        self.queue_file = self.project_root / ".claude/queues/task_queue.json"
+        cmat_package = claude_dir / "cmat" / "__init__.py"
+        if not cmat_package.exists():
+            raise FileNotFoundError(
+                f"CMAT Python package not found at {cmat_package}\n"
+                "Please install CMAT v8.2+ using File > Install..."
+            )
+
+        # Add .claude to Python path for importing cmat
+        claude_path_str = str(claude_dir)
+        if claude_path_str not in sys.path:
+            sys.path.insert(0, claude_path_str)
+
+        # Import and initialize CMAT
+        try:
+            from cmat import CMAT
+            self.cmat = CMAT(base_path=str(self.project_root))
+        except ImportError as e:
+            raise ImportError(
+                f"Failed to import CMAT: {e}\n"
+                "Required dependencies may be missing. Install with:\n"
+                "  pip install pyyaml"
+            )
+
+        # Update file paths to new locations (v8.2+)
+        self.queue_file = self.project_root / ".claude/data/task_queue.json"
+        self.templates_file = self.project_root / ".claude/data/workflow_templates.json"
+        self.learnings_file = self.project_root / ".claude/data/learnings.json"
+        self.models_file = self.project_root / ".claude/data/models.json"
         self.logs_dir = self.project_root / ".claude/logs"
         self.agents_file = self.project_root / ".claude/agents/agents.json"
         self.tools_file = self.project_root / ".claude/tools/tools.json"
         self.skills_file = self.project_root / ".claude/skills/skills.json"
-        self.templates_file = self.project_root / ".claude/queues/workflow_templates.json"
 
-        # Validate essential paths
-        if not self.queue_file.exists():
-            raise FileNotFoundError(f"Queue file not found: {self.queue_file}")
-
+        # Ensure directories exist
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-
-    def _find_project_root(self) -> Path:
-        """Find project root by walking up from script path."""
-        current = self.script_path.parent
-        while current != current.parent:
-            if (current / ".claude").exists():
-                return current
-            current = current.parent
-        raise FileNotFoundError("Could not find project root (.claude directory)")
-
-    def _run_command(self, *args) -> str:
-        """Run cmat command synchronously."""
-        cmd = [str(self.script_path)] + list(args)
-        result = subprocess.run(
-            cmd,
-            cwd=str(self.project_root),
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode != 0:
-            error_msg = result.stderr.strip() if result.stderr else "No error message"
-            stdout_msg = result.stdout.strip() if result.stdout else ""
-            raise RuntimeError(
-                f"Command failed: {' '.join(args)}\n"
-                f"Exit code: {result.returncode}\n"
-                f"Error: {error_msg}\n"
-                f"Output: {stdout_msg}"
-            )
-
-        return result.stdout
-
-    def _run_command_async(self, *args) -> subprocess.Popen:
-        """Run cmat command asynchronously."""
-        cmd = [str(self.script_path)] + list(args)
-        return subprocess.Popen(
-            cmd,
-            cwd=str(self.project_root),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            text=True,
-            start_new_session=True,
-            close_fds=True
-        )
 
     # =========================================================================
     # QUEUE COMMANDS
@@ -94,115 +74,150 @@ class CMATInterface:
                  task_type: str, source_file: str, description: str,
                  auto_complete: bool = False, auto_chain: bool = False) -> str:
         """Add a new task to the queue."""
-        output = self._run_command(
-            "queue", "add",
-            title, agent, priority, task_type, source_file, description,
-            "true" if auto_complete else "false",
-            "true" if auto_chain else "false"
+        task = self.cmat.queue.add(
+            title=title,
+            assigned_agent=agent,
+            priority=priority,
+            task_type=task_type,
+            source_file=source_file,
+            description=description,
+            auto_complete=auto_complete,
+            auto_chain=auto_chain,
         )
-        return output.strip().split('\n')[-1]
+        return task.id
 
-    def start_task(self, task_id: str) -> subprocess.Popen:
+    def start_task(self, task_id: str):
         """Start a task asynchronously."""
-        return self._run_command_async("queue", "start", task_id)
+        def execute():
+            try:
+                self.cmat.workflow.run_task(task_id)
+            except Exception as e:
+                print(f"Error executing task {task_id}: {e}")
+
+        thread = threading.Thread(target=execute, daemon=True)
+        thread.start()
+        return None  # UI doesn't actually use the process handle
 
     def complete_task(self, task_id: str, result: str = "", auto_chain: bool = False):
         """Complete a task."""
-        args = ["queue", "complete", task_id]
-        if result:
-            args.append(result)
+        self.cmat.queue.complete(task_id, result=result)
         if auto_chain:
-            args.append("--auto-chain")
-        self._run_command(*args)
+            # Trigger workflow auto-chain if applicable
+            task = self.cmat.queue.get(task_id)
+            if task and task.metadata and task.metadata.workflow_name:
+                self.cmat.workflow.handle_completion(task)
 
     def cancel_task(self, task_id: str, reason: str = ""):
         """Cancel a task."""
-        args = ["queue", "cancel", task_id]
-        if reason:
-            args.append(reason)
-        self._run_command(*args)
+        self.cmat.queue.cancel(task_id, reason=reason)
 
     def rerun_task(self, task_id: str):
         """Re-run a completed or failed task."""
-        self._run_command("queue", "rerun", task_id)
+        self.cmat.queue.rerun(task_id)
 
     def cancel_all_tasks(self, reason: str = ""):
         """Cancel all pending and active tasks."""
-        args = ["queue", "cancel-all"]
-        if reason:
-            args.append(reason)
-        self._run_command(*args)
+        tasks = self.cmat.queue.list_all()
+        for task in tasks:
+            if task.status.value in ['pending', 'active']:
+                self.cmat.queue.cancel(task.id, reason=reason)
 
     def clear_finished_tasks(self):
         """Clear all completed and failed tasks from history."""
-        self._run_command("queue", "clear-finished", "--force")
+        queue_data = self._read_queue_file()
+        queue_data['tasks'] = [
+            t for t in queue_data.get('tasks', [])
+            if t.get('status') not in ['completed', 'failed']
+        ]
+        self._write_queue_file(queue_data)
 
     def reset_queue(self):
         """Reset the entire queue system to empty state."""
-        self._run_command("queue", "init", "--force")
+        empty_queue = {
+            "queue_metadata": {
+                "created": datetime.utcnow().isoformat() + "Z",
+                "version": "3.0.0",
+                "description": "Task queue for multi-agent development system"
+            },
+            "tasks": [],
+            "agent_status": {}
+        }
+        self._write_queue_file(empty_queue)
 
     def fail_task(self, task_id: str, error: str = ""):
         """Fail a task."""
-        args = ["queue", "fail", task_id]
-        if error:
-            args.append(error)
-        self._run_command(*args)
+        self.cmat.queue.fail(task_id, error=error)
 
     def update_metadata(self, task_id: str, key: str, value: str):
         """Update task metadata."""
-        self._run_command("queue", "metadata", task_id, key, value)
+        task = self.cmat.queue.get(task_id)
+        if task and task.metadata:
+            # Update metadata directly in queue file
+            queue_data = self._read_queue_file()
+            for task_data in queue_data.get('tasks', []):
+                if task_data['id'] == task_id:
+                    if 'metadata' not in task_data:
+                        task_data['metadata'] = {}
+                    task_data['metadata'][key] = value
+                    break
+            self._write_queue_file(queue_data)
 
     def get_queue_state(self) -> QueueState:
         """Get current queue state."""
-        output = self._run_command("queue", "list", "all", "json")
-        data = json.loads(output)
+        all_tasks = self.cmat.queue.list_all()
 
-        def parse_task(task_data: dict) -> Task:
-            from datetime import datetime
-
+        def convert_task(cmat_task) -> Task:
+            """Convert CMAT Task model to UI Task model."""
             start_datetime = None
             end_datetime = None
 
-            if task_data.get('started'):
+            if cmat_task.started:
                 try:
-                    start_dt = datetime.fromisoformat(task_data['started'].replace('Z', '+00:00'))
+                    start_dt = datetime.fromisoformat(cmat_task.started.replace('Z', '+00:00'))
                     start_datetime = int(start_dt.timestamp())
                 except (ValueError, AttributeError):
                     pass
 
-            if task_data.get('completed'):
+            if cmat_task.completed:
                 try:
-                    end_dt = datetime.fromisoformat(task_data['completed'].replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(cmat_task.completed.replace('Z', '+00:00'))
                     end_datetime = int(end_dt.timestamp())
                 except (ValueError, AttributeError):
                     pass
 
+            # Convert metadata
+            metadata_dict = None
+            if cmat_task.metadata:
+                metadata_dict = cmat_task.metadata.to_dict()
+
             return Task(
-                id=task_data['id'],
-                title=task_data['title'],
-                assigned_agent=task_data['assigned_agent'],
-                priority=task_data['priority'],
-                task_type=task_data.get('task_type', 'unknown'),
-                description=task_data.get('description', ''),
-                source_file=task_data.get('source_file', ''),
-                created=task_data['created'],
-                status=task_data['status'],
-                started=task_data.get('started'),
-                completed=task_data.get('completed'),
-                result=task_data.get('result'),
+                id=cmat_task.id,
+                title=cmat_task.title,
+                assigned_agent=cmat_task.assigned_agent,
+                priority=cmat_task.priority.value if hasattr(cmat_task.priority, 'value') else cmat_task.priority,
+                task_type=cmat_task.task_type,
+                description=cmat_task.description,
+                source_file=cmat_task.source_file,
+                created=cmat_task.created,
+                status=cmat_task.status.value if hasattr(cmat_task.status, 'value') else cmat_task.status,
+                started=cmat_task.started,
+                completed=cmat_task.completed,
+                result=cmat_task.result,
                 start_datetime=start_datetime,
                 end_datetime=end_datetime,
-                runtime_seconds=task_data.get('runtime_seconds'),
-                auto_complete=task_data.get('auto_complete', False),
-                auto_chain=task_data.get('auto_chain', False),
-                metadata=task_data.get('metadata')
+                runtime_seconds=cmat_task.runtime_seconds,
+                auto_complete=cmat_task.auto_complete,
+                auto_chain=cmat_task.auto_chain,
+                metadata=metadata_dict
             )
 
+        ui_tasks = [convert_task(t) for t in all_tasks]
+
         return QueueState(
-            pending_tasks=[parse_task(t) for t in data.get('pending', [])],
-            active_workflows=[parse_task(t) for t in data.get('active', [])],
-            completed_tasks=[parse_task(t) for t in data.get('completed', [])],
-            failed_tasks=[parse_task(t) for t in data.get('failed', [])],
+            pending_tasks=[t for t in ui_tasks if t.status == 'pending'],
+            active_workflows=[t for t in ui_tasks if t.status == 'active'],
+            completed_tasks=[t for t in ui_tasks if t.status == 'completed'],
+            failed_tasks=[t for t in ui_tasks if t.status == 'failed'],
             agent_status={}
         )
 
@@ -210,151 +225,139 @@ class CMATInterface:
     # WORKFLOW COMMANDS
     # =========================================================================
 
-    def start_workflow(self, workflow_name: str, enhancement_name: str) -> subprocess.Popen:
-        """
-        Start a workflow using 'cmat workflow start'.
+    def start_workflow(self, workflow_name: str, enhancement_name: str):
+        """Start a workflow."""
+        task_id = self.cmat.workflow.start_workflow(workflow_name, enhancement_name)
 
-        Args:
-            workflow_name: Name of workflow template
-            enhancement_name: Name of enhancement
+        # Execute first task asynchronously
+        def execute():
+            try:
+                self.cmat.workflow.run_task(task_id)
+            except Exception as e:
+                print(f"Error starting workflow {workflow_name}: {e}")
 
-        Returns:
-            Process handle for async execution
-        """
-        return self._run_command_async("workflow", "start", workflow_name, enhancement_name)
+        thread = threading.Thread(target=execute, daemon=True)
+        thread.start()
+        return None
 
     def get_workflow_templates(self) -> List:
-        """Get all workflow templates using WorkflowTemplate model."""
+        """Get all workflow templates."""
         from ..models import WorkflowTemplate
 
-        if not self.templates_file.exists():
-            return []
+        templates = self.cmat.workflow.list_all()
 
-        try:
-            with open(self.templates_file, 'r') as f:
-                data = json.load(f)
+        # Convert CMAT workflow models to UI models
+        ui_templates = []
+        for cmat_template in templates:
+            ui_template = WorkflowTemplate.from_dict(
+                cmat_template.slug,
+                {
+                    'name': cmat_template.name,
+                    'description': cmat_template.description,
+                    'steps': [
+                        {
+                            'agent': step.agent,
+                            'input': step.input_pattern,
+                            'required_output': step.required_output,
+                            'description': step.description or '',
+                            'on_status': {
+                                status: {
+                                    'next_step': trans.next_step,
+                                    'auto_chain': trans.auto_chain
+                                }
+                                for status, trans in (step.on_status or {}).items()
+                            }
+                        }
+                        for step in cmat_template.steps
+                    ]
+                }
+            )
+            ui_templates.append(ui_template)
 
-            templates = []
-            workflows_dict = data.get('workflows', {})
-
-            for slug, template_data in workflows_dict.items():
-                template = WorkflowTemplate.from_dict(slug, template_data)
-                templates.append(template)
-
-            return templates
-        except (json.JSONDecodeError, IOError):
-            return []
+        return ui_templates
 
     def get_workflow_template(self, slug: str):
         """Get a specific workflow template by slug."""
         from ..models import WorkflowTemplate
 
-        if not self.templates_file.exists():
+        cmat_template = self.cmat.workflow.get(slug)
+        if not cmat_template:
             return None
 
-        try:
-            with open(self.templates_file, 'r') as f:
-                data = json.load(f)
-
-            template_data = data.get('workflows', {}).get(slug)
-            if not template_data:
-                return None
-
-            return WorkflowTemplate.from_dict(slug, template_data)
-        except (json.JSONDecodeError, IOError):
-            return None
+        return WorkflowTemplate.from_dict(
+            cmat_template.slug,
+            {
+                'name': cmat_template.name,
+                'description': cmat_template.description,
+                'steps': [
+                    {
+                        'agent': step.agent,
+                        'input': step.input_pattern,
+                        'required_output': step.required_output,
+                        'description': step.description or '',
+                        'on_status': {
+                            status: {
+                                'next_step': trans.next_step,
+                                'auto_chain': trans.auto_chain
+                            }
+                            for status, trans in (step.on_status or {}).items()
+                        }
+                    }
+                    for step in cmat_template.steps
+                ]
+            }
+        )
 
     def get_workflow_step_details(self, workflow_name: str, step_index: int) -> Optional[Dict]:
-        """
-        Get details for a specific workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_index: Step index (0-based)
-
-        Returns:
-            Step details dict or None if not found
-        """
-        # Ensure step_index is an integer
-        if isinstance(step_index, str):
-            step_index = int(step_index)
-
-        template = self.get_workflow_template(workflow_name)
+        """Get details for a specific workflow step."""
+        template = self.cmat.workflow.get(workflow_name)
         if not template or step_index >= len(template.steps):
             return None
 
         step = template.steps[step_index]
         return {
             'agent': step.agent,
-            'input': step.input,
+            'input': step.input_pattern,
             'required_output': step.required_output,
-            'on_status': step.on_status,
-            'description': step.description
+            'on_status': {
+                status: {
+                    'next_step': trans.next_step,
+                    'auto_chain': trans.auto_chain
+                }
+                for status, trans in (step.on_status or {}).items()
+            },
+            'description': step.description or ''
         }
 
     def get_step_expected_statuses(self, workflow_name: str, step_index: int) -> List[str]:
-        """
-        Get expected status codes for a workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_index: Step index (0-based)
-
-        Returns:
-            List of expected status codes
-        """
+        """Get expected status codes for a workflow step."""
         step_details = self.get_workflow_step_details(workflow_name, step_index)
         if not step_details:
             return []
-
         return list(step_details.get('on_status', {}).keys())
 
     def get_step_input_path(self, workflow_name: str, step_index: int,
                             enhancement_name: str) -> Optional[str]:
-        """
-        Get resolved input path for a workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_index: Step index (0-based)
-            enhancement_name: Enhancement name for placeholder substitution
-
-        Returns:
-            Resolved input path or None
-        """
+        """Get resolved input path for a workflow step."""
         step_details = self.get_workflow_step_details(workflow_name, step_index)
         if not step_details:
             return None
 
         input_pattern = step_details['input']
-
-        # Substitute {enhancement_name}
         resolved = input_pattern.replace('{enhancement_name}', enhancement_name)
 
-        # Handle {previous_step} - need previous agent info
         if step_index > 0 and '{previous_step}' in resolved:
             prev_step = self.get_workflow_step_details(workflow_name, step_index - 1)
             if prev_step:
                 prev_agent = prev_step['agent']
                 resolved = resolved.replace('{previous_step}',
-                                            f"enhancements/{enhancement_name}/{prev_agent}")
+                                          f"enhancements/{enhancement_name}/{prev_agent}")
 
         return resolved
 
     def get_step_output_path(self, workflow_name: str, step_index: int,
                              enhancement_name: str, agent: str) -> Optional[str]:
-        """
-        Get expected output path for a workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_index: Step index (0-based)
-            enhancement_name: Enhancement name
-            agent: Agent name
-
-        Returns:
-            Expected output path or None
-        """
+        """Get expected output path for a workflow step."""
         step_details = self.get_workflow_step_details(workflow_name, step_index)
         if not step_details:
             return None
@@ -364,211 +367,239 @@ class CMATInterface:
 
     def validate_step_output(self, workflow_name: str, step_index: int,
                              agent: str, enhancement_dir: str) -> Tuple[bool, str]:
-        """
-        Validate agent outputs for a workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_index: Step index (0-based)
-            agent: Agent name
-            enhancement_dir: Enhancement directory path
-
-        Returns:
-            (is_valid, message) tuple
-        """
+        """Validate agent outputs for a workflow step."""
         step_details = self.get_workflow_step_details(workflow_name, step_index)
         if not step_details:
             return False, "Workflow step not found"
 
         required_output = step_details['required_output']
+        output_path = Path(enhancement_dir) / agent / "required_output" / required_output
 
-        try:
-            output = self._run_command("workflow", "validate-output",
-                                       agent, enhancement_dir, required_output)
-            return True, output.strip()
-        except RuntimeError as e:
-            return False, str(e)
+        if output_path.exists():
+            return True, f"Output file found: {output_path}"
+        else:
+            return False, f"Required output not found: {output_path}"
 
     def add_workflow_step(self, workflow_name: str, agent: str,
                           input_pattern: str, output_filename: str,
                           position: Optional[int] = None):
-        """
-        Add a step to a workflow template.
+        """Add a step to a workflow template."""
+        # This would require implementing in CMAT Python API
+        # For now, direct JSON manipulation
+        templates_data = self._read_templates_file()
+        workflow = templates_data.get('workflows', {}).get(workflow_name)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_name} not found")
 
-        Args:
-            workflow_name: Name of workflow template
-            agent: Agent to execute
-            input_pattern: Input file/directory pattern
-            output_filename: Required output filename
-            position: Optional position to insert (default: append)
-        """
-        args = ["workflow", "add-step", workflow_name, agent, input_pattern, output_filename]
-        if position is not None:
-            args.append(str(position))
-        self._run_command(*args)
+        new_step = {
+            'agent': agent,
+            'input': input_pattern,
+            'required_output': output_filename,
+            'description': '',
+            'on_status': {}
+        }
+
+        if position is None:
+            workflow['steps'].append(new_step)
+        else:
+            workflow['steps'].insert(position, new_step)
+
+        self._write_templates_file(templates_data)
 
     def edit_workflow_step(self, workflow_name: str, step_number: int,
                            input_pattern: Optional[str] = None,
                            output_filename: Optional[str] = None):
-        """
-        Edit an existing workflow step.
+        """Edit an existing workflow step."""
+        templates_data = self._read_templates_file()
+        workflow = templates_data.get('workflows', {}).get(workflow_name)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_name} not found")
 
-        Args:
-            workflow_name: Name of workflow template
-            step_number: Step number (1-based as shown to user)
-            input_pattern: New input pattern (optional)
-            output_filename: New output filename (optional)
-        """
-        args = ["workflow", "edit-step", workflow_name, str(step_number)]
+        step_index = step_number - 1
+        if step_index >= len(workflow['steps']):
+            raise ValueError(f"Step {step_number} not found")
+
+        step = workflow['steps'][step_index]
         if input_pattern:
-            args.append(input_pattern)
+            step['input'] = input_pattern
         if output_filename:
-            args.append(output_filename)
-        self._run_command(*args)
+            step['required_output'] = output_filename
+
+        self._write_templates_file(templates_data)
 
     def remove_workflow_step(self, workflow_name: str, step_number: int):
-        """
-        Remove a step from workflow template.
+        """Remove a step from workflow template."""
+        templates_data = self._read_templates_file()
+        workflow = templates_data.get('workflows', {}).get(workflow_name)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_name} not found")
 
-        Args:
-            workflow_name: Name of workflow template
-            step_number: Step number (1-based as shown to user)
-        """
-        self._run_command("workflow", "remove-step", workflow_name, str(step_number))
+        step_index = step_number - 1
+        if step_index >= len(workflow['steps']):
+            raise ValueError(f"Step {step_number} not found")
+
+        workflow['steps'].pop(step_index)
+        self._write_templates_file(templates_data)
 
     def add_workflow_transition(self, workflow_name: str, step_number: int,
                                 status: str, next_step: str, auto_chain: bool = True):
-        """
-        Add status transition to workflow step.
+        """Add status transition to workflow step."""
+        templates_data = self._read_templates_file()
+        workflow = templates_data.get('workflows', {}).get(workflow_name)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_name} not found")
 
-        Args:
-            workflow_name: Name of workflow template
-            step_number: Step number (0-based)
-            status: Status code
-            next_step: Next agent name or 'null' for end
-            auto_chain: Whether to auto-chain
-        """
-        self._run_command("workflow", "add-transition",
-                          workflow_name, str(step_number), status, next_step,
-                          "true" if auto_chain else "false")
+        step_index = step_number
+        if step_index >= len(workflow['steps']):
+            raise ValueError(f"Step {step_number} not found")
+
+        step = workflow['steps'][step_index]
+        if 'on_status' not in step:
+            step['on_status'] = {}
+
+        step['on_status'][status] = {
+            'next_step': next_step,
+            'auto_chain': auto_chain
+        }
+
+        self._write_templates_file(templates_data)
 
     def remove_workflow_transition(self, workflow_name: str, step_number: int, status: str):
-        """
-        Remove status transition from workflow step.
+        """Remove status transition from workflow step."""
+        templates_data = self._read_templates_file()
+        workflow = templates_data.get('workflows', {}).get(workflow_name)
+        if not workflow:
+            raise ValueError(f"Workflow {workflow_name} not found")
 
-        Args:
-            workflow_name: Name of workflow template
-            step_number: Step number (0-based)
-            status: Status code to remove
-        """
-        self._run_command("workflow", "remove-transition",
-                          workflow_name, str(step_number), status)
+        step_index = step_number
+        if step_index >= len(workflow['steps']):
+            raise ValueError(f"Step {step_number} not found")
+
+        step = workflow['steps'][step_index]
+        if 'on_status' in step and status in step['on_status']:
+            del step['on_status'][status]
+
+        self._write_templates_file(templates_data)
 
     def list_workflow_transitions(self, workflow_name: str, step_number: int) -> List[Dict]:
-        """
-        List transitions for a workflow step.
-
-        Args:
-            workflow_name: Name of workflow template
-            step_number: Step number (0-based)
-
-        Returns:
-            List of transition dicts with 'status', 'next_step', 'auto_chain'
-        """
-        try:
-            output = self._run_command("workflow", "list-transitions",
-                                       workflow_name, str(step_number))
-            # Parse output format: "STATUS → NEXT (auto_chain: true)"
-            transitions = []
-            for line in output.strip().split('\n'):
-                if '→' in line:
-                    match = re.match(r'\s*(\S+)\s*→\s*(\S+)\s*\(auto_chain:\s*(\w+)\)', line)
-                    if match:
-                        transitions.append({
-                            'status': match.group(1),
-                            'next_step': match.group(2),
-                            'auto_chain': match.group(3) == 'true'
-                        })
-            return transitions
-        except RuntimeError:
+        """List transitions for a workflow step."""
+        step_details = self.get_workflow_step_details(workflow_name, step_number)
+        if not step_details:
             return []
 
+        transitions = []
+        for status, trans in step_details.get('on_status', {}).items():
+            transitions.append({
+                'status': status,
+                'next_step': trans['next_step'],
+                'auto_chain': trans['auto_chain']
+            })
+
+        return transitions
+
     def validate_workflow(self, workflow_name: str) -> Tuple[bool, List[str]]:
-        """
-        Validate a workflow template.
+        """Validate a workflow template."""
+        template = self.cmat.workflow.get(workflow_name)
+        if not template:
+            return False, [f"Workflow {workflow_name} not found"]
 
-        Args:
-            workflow_name: Name of workflow template
+        messages = []
+        is_valid = True
 
-        Returns:
-            (is_valid, messages) tuple
-        """
-        try:
-            output = self._run_command("workflow", "validate", workflow_name)
-            lines = [line.strip() for line in output.split('\n') if line.strip()]
-            is_valid = any('validation passed' in line.lower() for line in lines)
-            return is_valid, lines
-        except RuntimeError as e:
-            return False, [str(e)]
+        # Check each step
+        for i, step in enumerate(template.steps):
+            # Check agent exists
+            agent = self.cmat.agents.get(step.agent)
+            if not agent:
+                messages.append(f"Step {i+1}: Agent '{step.agent}' not found")
+                is_valid = False
+
+            # Check required fields
+            if not step.input_pattern:
+                messages.append(f"Step {i+1}: Missing input pattern")
+                is_valid = False
+            if not step.required_output:
+                messages.append(f"Step {i+1}: Missing required output")
+                is_valid = False
+
+            # Check transitions reference valid steps
+            if step.on_status:
+                for status, trans in step.on_status.items():
+                    if trans.next_step and trans.next_step != 'null':
+                        # Check if next_step agent exists
+                        next_agent = self.cmat.agents.get(trans.next_step)
+                        if not next_agent:
+                            messages.append(
+                                f"Step {i+1}: Transition '{status}' references "
+                                f"unknown agent '{trans.next_step}'"
+                            )
+                            is_valid = False
+
+        if is_valid:
+            messages.append("✓ Workflow validation passed")
+
+        return is_valid, messages
 
     # =========================================================================
     # SKILLS COMMANDS
     # =========================================================================
 
     def get_skills_list(self) -> Optional[Dict]:
-        """Get all available skills from skills.json."""
-        if not self.skills_file.exists():
-            return None
+        """Get all available skills."""
+        skills = self.cmat.skills.list_all()
 
-        try:
-            with open(self.skills_file, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            return None
+        # Convert to dict format expected by UI
+        return {
+            "skills": [
+                {
+                    "name": skill.name,
+                    "directory": skill.directory,
+                    "category": skill.category,
+                    "description": skill.description or ""
+                }
+                for skill in skills
+            ]
+        }
 
     def get_agent_skills(self, agent: str) -> List[str]:
         """Get skills assigned to an agent."""
-        try:
-            output = self._run_command("skills", "get", agent)
-            skills_data = json.loads(output)
-            return skills_data if isinstance(skills_data, list) else []
-        except (RuntimeError, json.JSONDecodeError):
+        agent_obj = self.cmat.agents.get(agent)
+        if not agent_obj:
             return []
+        return agent_obj.skills
 
     def load_skill_content(self, skill_directory: str) -> Optional[str]:
-        """Load skill content from SKILL.md file."""
-        try:
-            return self._run_command("skills", "load", skill_directory)
-        except RuntimeError:
+        """Load skill content from directory."""
+        skill = self.cmat.skills.get(skill_directory)
+        if not skill:
             return None
+
+        skill_path = self.project_root / ".claude/skills" / skill_directory / "SKILL.md"
+        if skill_path.exists():
+            return skill_path.read_text()
+        return None
 
     def get_skills_prompt(self, agent: str) -> Optional[str]:
         """Build complete skills section for agent prompt."""
-        try:
-            return self._run_command("skills", "prompt", agent)
-        except RuntimeError:
-            return None
+        return self.cmat.skills.build_prompt(agent)
 
     # =========================================================================
-    # INTEGRATION COMMANDS
+    # INTEGRATION COMMANDS (Placeholder - not in CMAT v8 yet)
     # =========================================================================
 
     def add_integration_task(self, workflow_status: str, source_file: str,
                              previous_agent: str, parent_task_id: str = "") -> str:
-        """Add integration task for external system sync."""
-        args = ["integration", "add", workflow_status, source_file, previous_agent]
-        if parent_task_id:
-            args.append(parent_task_id)
-        output = self._run_command(*args)
-        return output.strip()
+        """Add integration task (not yet implemented in CMAT v8)."""
+        # TODO: Implement when integration service is added to CMAT Python
+        return ""
 
     def sync_task_external(self, task_id: str):
-        """Sync specific task to external systems."""
-        self._run_command("integration", "sync", task_id)
+        """Sync task to external systems (not yet implemented)."""
+        pass
 
     def sync_all_external(self):
-        """Sync all unsynced completed tasks."""
-        self._run_command("integration", "sync-all")
+        """Sync all unsynced tasks (not yet implemented)."""
+        pass
 
     # =========================================================================
     # AGENT COMMANDS
@@ -582,77 +613,19 @@ class CMATInterface:
             task_description: str = "UI-invoked task",
             task_type: str = "analysis"
     ) -> Path:
-        """
-        Run an agent directly without task queue integration (UI operations only).
+        """Run an agent directly (synchronous)."""
+        result = self.cmat.tasks.execute_direct(
+            agent=agent_name,
+            input_file=str(input_file),
+            output_dir=str(output_dir),
+            task_description=task_description,
+            task_type=task_type
+        )
 
-        This executes an agent synchronously for UI-driven operations like
-        enhancement creation, agent creation, or task planning. The agent runs
-        outside the task queue system and returns results immediately.
+        if not result.success:
+            raise RuntimeError(f"Agent execution failed: {result.error}")
 
-        This method is specifically designed for UI operations and should NOT
-        be used for:
-        - Workflow execution (use start_task instead)
-        - Background task processing
-        - Operations requiring cancellation support
-        - Operations requiring status tracking or auto-completion
-
-        Key differences from task-based invocation:
-        - Synchronous execution (blocks until complete)
-        - No task queue entry created
-        - No PID tracking or cancellation support
-        - No status extraction or auto-completion
-        - Custom output directory (not enhancement structure)
-        - Logs to .claude/logs/ (not enhancement logs)
-
-        Args:
-            agent_name: Name of agent to run (e.g., "product-analyst")
-            input_file: Path to input file for agent
-            output_dir: Directory where agent should write output
-            task_description: Description for logging (default: "UI-invoked task")
-            task_type: Task type for template selection (default: "analysis")
-
-        Returns:
-            Path to agent output directory
-
-        Raises:
-            RuntimeError: If agent execution fails
-
-        Example:
-            >>> # Generate enhancement specification
-            >>> output_dir = queue.run_agent_direct(
-            ...     agent_name="product-analyst",
-            ...     input_file=Path("context.md"),
-            ...     output_dir=Path("/tmp/enhancement/product-analyst"),
-            ...     task_description="Generate enhancement spec"
-            ... )
-            >>> spec_file = output_dir / "enhancement-spec.md"
-        """
-        try:
-            output = self._run_command(
-                "agents", "invoke-direct",
-                agent_name,
-                str(input_file),
-                str(output_dir),
-                task_description,
-                task_type
-            )
-
-            # Command returns output directory path on success
-            result_dir = Path(output.strip())
-
-            if not result_dir.exists():
-                raise RuntimeError(
-                    f"Agent '{agent_name}' completed but output directory not found: {result_dir}"
-                )
-
-            return result_dir
-
-        except RuntimeError as e:
-            # Re-raise with more context
-            raise RuntimeError(
-                f"Agent '{agent_name}' failed: {str(e)}\n"
-                f"Check logs in: {self.logs_dir}"
-            )
+        return Path(output_dir)
 
     def run_agent_async(
             self,
@@ -664,122 +637,79 @@ class CMATInterface:
             on_success=None,
             on_error=None
     ):
-        """
-        Run an agent asynchronously (UI operations).
-
-        Uses the same async subprocess pattern as task/workflow execution.
-        """
-        import threading
-
+        """Run an agent asynchronously."""
         def run_in_thread():
-            """Execute agent and poll for completion."""
             try:
-                # Convert to relative paths
-                rel_input = PathUtils.relative_to_project(input_file, self.project_root)
-                rel_output = PathUtils.relative_to_project(output_dir, self.project_root)
-
-                # Use _run_command_async (same as task execution!)
-                process = self._run_command_async(
-                    "agents", "invoke-direct",
-                    agent_name,
-                    rel_input,
-                    rel_output,
-                    task_description,
-                    task_type
+                result = self.cmat.tasks.execute_direct(
+                    agent=agent_name,
+                    input_file=str(input_file),
+                    output_dir=str(output_dir),
+                    task_description=task_description,
+                    task_type=task_type
                 )
 
-                # Wait for process to complete
-                process.wait()
-
-                if process.returncode != 0:
-                    raise RuntimeError(f"Agent exited with code {process.returncode}")
-
-                # Success - we know where the output is
-                result_dir = output_dir
-
-                # Call success callback on main thread
-                if on_success:
+                if result.success and on_success:
                     import tkinter as tk
                     root = tk._default_root
                     if root:
-                        root.after(0, lambda r=result_dir: on_success(r))
+                        root.after(0, lambda: on_success(Path(output_dir)))
                     else:
-                        on_success(result_dir)
+                        on_success(Path(output_dir))
+                elif not result.success and on_error:
+                    import tkinter as tk
+                    root = tk._default_root
+                    if root:
+                        root.after(0, lambda: on_error(Exception(result.error)))
+                    else:
+                        on_error(Exception(result.error))
 
             except Exception as ex:
-                # Call error callback on main thread
                 if on_error:
                     import tkinter as tk
                     root = tk._default_root
                     if root:
-                        root.after(0, lambda err=ex: on_error(err))
+                        root.after(0, lambda: on_error(ex))
                     else:
                         on_error(ex)
 
-        # Start thread
         thread = threading.Thread(target=run_in_thread, daemon=True)
         thread.start()
 
     def get_agents_data(self) -> Optional[Dict]:
-        """Get agents data from agents.json."""
-        if not self.agents_file.exists():
-            return None
+        """Get agents data."""
+        agents = self.cmat.agents.list_all()
 
-        try:
-            with open(self.agents_file, 'r') as f:
-                data = json.load(f)
-                if isinstance(data, dict) and 'agents' in data:
-                    return data
-                elif isinstance(data, list):
-                    return {'agents': data}
-                return data
-        except (json.JSONDecodeError, IOError):
-            return None
+        return {
+            'agents': [
+                {
+                    'name': agent.name,
+                    'agent-file': agent.agent_file,
+                    'role': agent.role,
+                    'description': agent.description or '',
+                    'tools': agent.tools,
+                    'skills': agent.skills
+                }
+                for agent in agents
+            ]
+        }
 
     def regenerate_agents_json(self):
-        """Regenerate agents.json from agent markdown frontmatter."""
-        self._run_command("agents", "generate-json")
+        """Regenerate agents.json from markdown files."""
+        # CMAT Python auto-generates agents.json on demand
+        # Just invalidate cache to force reload
+        self.cmat.invalidate_caches()
 
     def get_agent_list(self) -> Dict[str, str]:
         """Get dictionary of available agents."""
-        if not self.agents_file.exists():
-            raise FileNotFoundError(f"Agents file not found: {self.agents_file}")
-
-        with open(self.agents_file, 'r') as f:
-            data = json.load(f)
-
-        result = {}
-        agents_list = data.get('agents', []) if isinstance(data, dict) else data
-
-        for agent in agents_list:
-            if isinstance(agent, dict):
-                agent_file = agent.get('agent-file')
-                name = agent.get('name')
-                if agent_file and name:
-                    result[agent_file] = name
-
-        return result
+        agents = self.cmat.agents.list_all()
+        return {agent.agent_file: agent.name for agent in agents}
 
     def get_agent_role(self, agent: str) -> Optional[str]:
-        """
-        Get role for specific agent.
-
-        Args:
-            agent: Agent key (agent-file)
-
-        Returns:
-            Role string or None
-        """
-        agents_data = self.get_agents_data()
-        if not agents_data:
+        """Get role for specific agent."""
+        agent_obj = self.cmat.agents.get(agent)
+        if not agent_obj:
             return None
-
-        agents_list = agents_data.get('agents', [])
-        for agent_data in agents_list:
-            if agent_data.get('agent-file') == agent:
-                return agent_data.get('role')
-
-        return None
+        return agent_obj.role
 
     # =========================================================================
     # UTILITY METHODS
@@ -787,14 +717,8 @@ class CMATInterface:
 
     def get_version(self) -> str:
         """Get CMAT version."""
-        try:
-            output = self._run_command("version")
-            for line in output.split('\n'):
-                if line.startswith('cmat v'):
-                    return line.split('v')[1].strip()
-            return "5.0.0"
-        except RuntimeError:
-            return "unknown"
+        from cmat import __version__
+        return __version__
 
     def get_task_types(self) -> Dict[str, str]:
         """Get available task types."""
@@ -812,7 +736,7 @@ class CMATInterface:
         return ["critical", "high", "normal", "low"]
 
     def get_tools_data(self) -> Optional[Dict]:
-        """Get tools configuration from tools.json."""
+        """Get tools configuration."""
         if not self.tools_file.exists():
             return None
 
@@ -853,18 +777,20 @@ class CMATInterface:
 
     def extract_skills_used(self, log_content: str) -> List[str]:
         """Extract skills that were applied from task log."""
-        skills_used = []
+        import re
 
+        skills_used = []
         agent_output = log_content
+
         if "END OF PROMPT" in log_content:
             agent_output = log_content.split("END OF PROMPT", 1)[1]
 
-        # Try new format first: SKILLS_USED: skill1, skill2, skill3
+        # Try new format: SKILLS_USED: skill1, skill2
         if "SKILLS_USED:" in agent_output:
             match = re.search(r'SKILLS_USED:\s*([^\n]+)', agent_output)
             if match:
                 skills_line = match.group(1).strip()
-                skills_used = [skill.strip() for skill in skills_line.split(',') if skill.strip()]
+                skills_used = [s.strip() for s in skills_line.split(',') if s.strip()]
                 return skills_used
 
         # Fall back to old format: ## Skills Applied
@@ -888,7 +814,32 @@ class CMATInterface:
 
         return skills_used
 
+    # =========================================================================
+    # HELPER METHODS
+    # =========================================================================
+
+    def _read_queue_file(self) -> dict:
+        """Read queue file directly."""
+        with open(self.queue_file, 'r') as f:
+            return json.load(f)
+
+    def _write_queue_file(self, data: dict):
+        """Write queue file directly."""
+        with open(self.queue_file, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    def _read_templates_file(self) -> dict:
+        """Read templates file directly."""
+        with open(self.templates_file, 'r') as f:
+            return json.load(f)
+
+    def _write_templates_file(self, data: dict):
+        """Write templates file directly."""
+        with open(self.templates_file, 'w') as f:
+            json.dump(data, f, indent=2)
+
     def _extract_enhancement_name(self, source_file: str) -> Optional[str]:
         """Extract enhancement name from source file path."""
+        import re
         match = re.match(r'^enhancements/([^/]+)/', source_file)
         return match.group(1) if match else None
