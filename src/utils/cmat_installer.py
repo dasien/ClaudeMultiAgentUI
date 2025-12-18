@@ -56,8 +56,9 @@ DEFAULT_GITHUB_REPO = "ClaudeMultiAgentTemplate"
 DEFAULT_GITHUB_BRANCH = "main"
 
 # Fallback files for CMAT validation (used only if manifest.json is missing)
+# Updated for CMAT v8.2+ Python package structure
 FALLBACK_REQUIRED_FILES = [
-    "scripts/cmat.sh",
+    "cmat/__init__.py",
     "skills/skills.json",
 ]
 
