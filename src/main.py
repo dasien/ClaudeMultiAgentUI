@@ -336,7 +336,11 @@ class MainView:
             self.update_menu_states(connected=False)
 
         elif self.state.connection_state == ConnectionState.CONNECTED:
-            self.connection_label.config(text=f"Connected: {self.state.project_root}")
+            # Reset foreground color (in case it was red from error)
+            self.connection_label.config(
+                text=f"Connected: {self.state.project_root}",
+                foreground='black'
+            )
 
             # Show system version
             version = self.queue.get_version()

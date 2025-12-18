@@ -1,6 +1,10 @@
 # Multi-Agent Task Queue Manager Requirements
-# This application uses only Python standard library
-# No external dependencies required!
+
+# Required for CMAT v8.2+ Python integration
+pyyaml>=6.0
+
+# Optional: For better icon support
+# Pillow>=9.0.0
 
 # For development/testing only:
 # pytest>=7.0.0
