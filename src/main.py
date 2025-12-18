@@ -359,7 +359,8 @@ class MainView:
         from .dialogs import ConnectDialog
         dialog = ConnectDialog(self.root)
         if dialog.result:
-            self.connect_to_queue(dialog.result)
+            # Result is now project_root (not script path)
+            self.connect_to_project(dialog.result)
 
     def show_install_cmat_dialog(self):
         """Show CMAT installer dialog."""
@@ -370,32 +371,40 @@ class MainView:
         # If installation succeeded and user wants to connect
         if dialog.result and dialog.result.get("success") and dialog.result.get("connect"):
             project_root = dialog.result["project_root"]
-            cmat_script = Path(project_root) / ".claude" / "scripts" / "cmat.sh"
-
-            # Use existing connection logic
-            if cmat_script.exists():
-                self.connect_to_queue(str(cmat_script))
-            else:
-                messagebox.showwarning(
-                    "Connection Failed",
-                    f"Could not find cmat.sh at expected location:\n{cmat_script}"
-                )
+            # Connect using project root (Python CMAT v8.2+)
+            self.connect_to_project(str(project_root))
 
     def try_auto_connect(self):
         """Try to auto-connect to last project."""
         last_path = self.settings.get_last_queue_manager()
         if last_path and Path(last_path).exists():
             try:
-                self.connect_to_queue(last_path, silent=True)
+                # Check if path is a directory (project root) or old script path
+                path_obj = Path(last_path)
+                if path_obj.is_dir():
+                    # New format: project root
+                    self.connect_to_project(str(path_obj), silent=True)
+                elif path_obj.name == 'cmat.sh' and path_obj.parent.name == 'scripts':
+                    # Old format: convert script path to project root
+                    project_root = path_obj.parent.parent.parent
+                    self.connect_to_project(str(project_root), silent=True)
+                else:
+                    # Invalid path
+                    raise ValueError(f"Invalid path format: {last_path}")
             except Exception as e:
                 print(f"Auto-connect failed: {e}")
                 self.settings.clear_last_queue_manager()
 
-    def connect_to_queue(self, cmat_path, silent=False):
-        """Connect to a project."""
+    def connect_to_project(self, project_root: str, silent=False):
+        """Connect to a project using Python CMAT v8.2+.
+
+        Args:
+            project_root: Path to project root directory (contains .claude/)
+            silent: If True, suppress error dialogs
+        """
         try:
-            # Initialize queue interface
-            self.queue = CMATInterface(str(cmat_path))
+            # Initialize queue interface with project root
+            self.queue = CMATInterface(project_root)
 
             # Update state
             self.state.connection_state = ConnectionState.CONNECTED
@@ -403,8 +412,8 @@ class MainView:
             self.state.queue_file = self.queue.queue_file
             self.state.logs_dir = self.queue.logs_dir
 
-            # Save path
-            self.settings.set_last_queue_manager(str(cmat_path))
+            # Save path (now saves project root, not script path)
+            self.settings.set_last_queue_manager(str(project_root))
 
             # Update UI
             self.update_ui_state()
