@@ -272,16 +272,15 @@ class CMATInterface:
         ui_templates = []
         for cmat_template in templates:
             ui_template = WorkflowTemplate.from_dict(
-                cmat_template.slug,
+                cmat_template.id,
                 {
                     'name': cmat_template.name,
                     'description': cmat_template.description,
                     'steps': [
                         {
                             'agent': step.agent,
-                            'input': step.input_pattern,
+                            'input': step.input,
                             'required_output': step.required_output,
-                            'description': step.description or '',
                             'on_status': {
                                 status: {
                                     'next_step': trans.next_step,
