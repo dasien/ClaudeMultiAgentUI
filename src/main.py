@@ -160,6 +160,18 @@ class MainView:
         skills_menu.add_command(label="View Agent Skills...", command=self.show_agent_skills)
         self.menus['skills'] = menubar.index("Skills")
 
+        # Learnings menu (requires connection)
+        learnings_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Learnings", menu=learnings_menu, state="disabled")
+        learnings_menu.add_command(label="Browse Learnings...", command=self.show_learnings_browser, accelerator="Ctrl+R")
+        self.menus['learnings'] = menubar.index("Learnings")
+
+        # Models menu (requires connection)
+        models_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Models", menu=models_menu, state="disabled")
+        models_menu.add_command(label="Manage Models...", command=self.show_models_manager)
+        self.menus['models'] = menubar.index("Models")
+
         # Integration menu (requires connection)
         integration_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Integration", menu=integration_menu, state="disabled")
@@ -196,7 +208,7 @@ class MainView:
         """Enable or disable menus based on connection state."""
         state = "normal" if connected else "disabled"
 
-        for menu_name in ['workflows', 'enhancements', 'tasks', 'agents', 'skills', 'integration', 'logs']:
+        for menu_name in ['workflows', 'enhancements', 'tasks', 'agents', 'skills', 'learnings', 'models', 'integration', 'logs']:
             if menu_name in self.menus:
                 self.menubar.entryconfig(self.menus[menu_name], state=state)
 
@@ -965,6 +977,24 @@ class MainView:
 
         from .dialogs import LogViewerDialog
         LogViewerDialog(self.root, self.queue)
+
+    def show_learnings_browser(self):
+        """Show learnings browser dialog."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        from .dialogs.learnings_browser import LearningsBrowserDialog
+        LearningsBrowserDialog(self.root, self.queue).show()
+
+    def show_models_manager(self):
+        """Show models manager dialog."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        from .dialogs.models_manager import ModelsManagerDialog
+        ModelsManagerDialog(self.root, self.queue).show()
 
     def configure_api_key(self):
         """Configure Claude API settings."""
