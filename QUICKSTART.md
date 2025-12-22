@@ -1,12 +1,13 @@
 # Quick Start Guide
 
-This document describes the process to get up and running with the Claude Multi-Agent Workflow Manager v1.3.0 (CMAT v5.0+).
+This document describes the process to get up and running with the Claude Multi-Agent Workflow Manager v2.0.0 (CMAT v8.2+).
 
 ## Prerequisites
 
 - Python 3.7 or higher
 - Tkinter (usually included with Python)
-- A CMAT v5.0 project (or you can install one via the UI)
+- PyYAML (`pip install pyyaml`)
+- A CMAT v8.2+ project (or you can install one via the UI)
 
 ## Step 1: Verify Python Installation
 

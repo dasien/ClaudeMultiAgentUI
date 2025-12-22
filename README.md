@@ -1,10 +1,10 @@
 # Claude Multi-Agent Workflow Manager
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.7+-green)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v5.0+.
+A graphical user interface for managing multi-agent development workflows using the Claude Multi-Agent Development Template (CMAT) v8.2+.
 
 I created this tool to make the creation and management of CMAT-based projects easier. Rather than using the cmat.sh script directly, users can leverage a comprehensive GUI to create tasks, manage agents with their skills, configure workflow templates, and generate enhancements for their projects.
 
@@ -26,7 +26,13 @@ Default workflows are provided for common tasks, but users can create custom wor
 - 🎯 **Multi-Project Support** - Connect to different CMAT projects
 - 🚀 **Zero External Dependencies** - Uses only Python standard library
 
-### v5.0 Features
+### v2.0 Features (CMAT v8.2+ Integration)
+- 🧠 **Learnings Management** - Browse, filter, add, and manage RAG system learnings
+- 🤖 **Model Configuration** - Configure Claude models, pricing, and set default model
+- 🔗 **Direct Python Integration** - Native Python CMAT API integration (no subprocess overhead)
+- 📚 **RAG System Support** - Full support for CMAT's learning extraction and retrieval
+
+### v1.x Features
 - 🔧 **Modular Workflow Architecture** - Agents are now reusable components, workflows define orchestration
 - ⚡ **Visual Workflow Template Editor** - Configure input patterns, output files, and status transitions through UI
 - 🎨 **Transition Management** - Visually manage what happens when agents output specific status codes
@@ -38,8 +44,9 @@ Default workflows are provided for common tasks, but users can create custom wor
 
 - Python 3.7 or higher
 - Tkinter (included with Python)
-- A project using the Claude Multi-Agent Development Template v5.0+ (can be installed directly or connected to an existing project)
+- A project using the Claude Multi-Agent Development Template v8.2+ (can be installed directly or connected to an existing project)
 - Claude API key (optional, for AI-powered features)
+- PyYAML (for CMAT v8.2+ Python integration)
 
 ## Installation
 
