@@ -85,7 +85,7 @@ class WorkflowTemplateManagerDialog(BaseDialog):
                 self.template_tree.insert(
                     '',
                     tk.END,
-                    values=(template.name, template.id, template.description, step_count)
+                    values=(template.name, template.slug, template.description, step_count)
                 )
 
         except Exception as e:

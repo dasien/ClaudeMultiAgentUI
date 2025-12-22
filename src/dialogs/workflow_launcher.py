@@ -447,7 +447,7 @@ class WorkflowLauncherDialog(BaseDialog):
 
         try:
             # Start workflow
-            self.queue.start_workflow(self.selected_template.id, enhancement_name)
+            self.queue.start_workflow(self.selected_template.slug, enhancement_name)
 
             # Success - close dialog and return to main view
             self.close(result=True)
