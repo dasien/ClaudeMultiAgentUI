@@ -1,6 +1,6 @@
 # Claude Multi-Agent Workflow Manager - User Guide
 
-**Version 1.3.0 (CMAT v5.0+)**
+**Version 2.0.0 (CMAT v8.2+)**
 
 This guide provides comprehensive instructions for using the Claude Multi-Agent Manager, a graphical interface for the Claude Multi-Agent Template (CMAT) system.
 
@@ -42,8 +42,9 @@ When you first launch the application:
 Before you begin, you need:
 
 - **Python 3.7+** with Tkinter installed
+- **PyYAML** library (`pip install pyyaml`)
 - Either:
-  - An existing CMAT v5.0 project, OR
+  - An existing CMAT v8.2+ project, OR
   - A directory where you want to install CMAT
 
 ### Optional: Claude API Configuration
@@ -58,48 +59,50 @@ For AI-powered features, you'll need:
 
 ---
 
-## What's New in v5.0
+## What's New in v2.0
 
-### Major Architecture Change
+### CMAT v8.2+ Integration
 
-**v4.x Philosophy**: Agents defined their own workflow behavior
-- Agents specified inputs, outputs, and next agents
-- Workflow orchestration hardcoded in agent definitions
-- Same agent couldn't work differently in different workflows
+**Previous Architecture**: UI interacted with CMAT via bash subprocess calls
+- Spawned shell processes for every operation
+- Added subprocess overhead and complexity
+- Limited error handling and integration depth
 
-**v5.0 Philosophy**: Agents are reusable components, workflows orchestrate them
-- Agents define only their capabilities (tools and skills)
-- Workflow templates define inputs, outputs, and chaining
-- Same agent can work in multiple workflows with different configurations
+**v2.0 Architecture**: Direct Python API integration
+- Native Python module imports from CMAT
+- No subprocess overhead
+- Better error handling and state management
+- Full access to CMAT's internal services
+
+
+---
 
 ### New Features
 
-#### 1. **Simplified Agent Management**
-- **Removed**: Workflow configuration from agent creation
-- **Focus**: Just capabilities - tools and skills
-- **Benefit**: Agents are truly reusable across workflows
+#### 1. **Learnings Management (RAG System)**
+- **Browse Learnings**: View all learnings extracted by agents (`Ctrl+R`)
+- **Filter by Category**: code, architecture, testing, documentation, etc.
+- **Add Learnings**: Manually add insights to knowledge base
+- **Delete Learnings**: Remove outdated information
+- **Benefit**: Build institutional knowledge across projects
 
-#### 2. **Visual Workflow Template Editor**
-- **Configure**: Input patterns, output filenames, status transitions
-- **Manage**: Transitions with visual UI (add/edit/remove)
-- **Validate**: Workflows before saving with clear feedback
-- **Benefit**: No more manual JSON editing
+#### 2. **Model Configuration Management**
+- **Manage Models**: View/configure Claude models (`Ctrl+M`)
+- **Set Default Model**: Choose which model for generations
+- **Track Pricing**: Input/output token costs per model
+- **Custom Models**: Add new models as they're released
+- **Benefit**: Fine-grained control over AI model selection
 
-#### 3. **Workflow Starter Dialog**
-- **Quick Launch**: Start workflows with one click
-- **Pre-flight Checks**: Validates before starting
-- **Integration**: Works with enhancement generator
-- **Benefit**: Much faster than command line
+#### 3. **Direct Python Integration**
+- **Native API**: Direct access to CMAT services
+- **Better Performance**: No process spawning overhead
+- **Rich Error Handling**: Detailed error messages
+- **Benefit**: Faster, more reliable operations
 
-#### 4. **Dynamic Workflow Loading**
-- **Auto-discovery**: All workflow templates appear in dropdowns
-- **Custom Workflows**: Create your own, they work everywhere
-- **Benefit**: No hardcoded workflows, full flexibility
-
-#### 5. **Workflow Context in Tasks**
-- **Display**: Shows workflow name, step position, expected outputs
-- **Understanding**: Clear expectations for each task
-- **Benefit**: Better visibility into workflow progress
+#### 4. **PyYAML Requirement**
+- **Required**: PyYAML now required for CMAT v8.2+
+- **Installation**: `pip install pyyaml`
+- **Benefit**: Native YAML configuration parsing
 
 ---
 
@@ -112,7 +115,7 @@ For AI-powered features, you'll need:
 The header displays your connection status:
 
 ```
-Connected: /path/to/your/project     CMAT v5.0
+Connected: /path/to/your/project     CMAT v8.2+
 ```
 
 - **Left side**: Shows project root path when connected
@@ -192,11 +195,13 @@ The bottom status bar shows:
    - Backup restored on failure
 
 **What gets installed**:
-- `.claude/scripts/cmat.sh` - Main CMAT command
-- `.claude/agents/agents.json` - Agent definitions
+- `.claude/cmat/` - CMAT Python modules
+- `.claude/agents/` - Agent definitions
 - `.claude/skills/` - Skill modules
-- `.claude/queues/task_queue.json` - Task queue
-- `.claude/queues/workflow_templates.json` - Workflow templates
+- `.claude/data/task_queue.json` - Task queue
+- `.claude/data/workflow_templates.json` - Workflow templates
+- `.claude/data/learnings.json` - RAG learnings database
+- `.claude/data/models.json` - Model configurations
 - And more...
 
 ### Connecting to Existing Project
@@ -214,11 +219,11 @@ The bottom status bar shows:
    - NOT the `.claude/` directory itself
 
 3. **Validation Checks**: The dialog validates:
-   - ✓ CMAT script (`.claude/scripts/cmat.sh`)
-   - ✓ Task queue (`.claude/queues/task_queue.json`)
-   - ✓ Workflow templates (`.claude/queues/workflow_templates.json`)
-   - ✓ Skills system (`.claude/skills/skills.json`)
-   - ✓ Agents (`.claude/agents/agents.json`)
+   - ✓ CMAT modules (`.claude/cmat/` directory)
+   - ✓ Task queue (`.claude/data/task_queue.json`)
+   - ✓ Workflow templates (`.claude/data/workflow_templates.json`)
+   - ✓ Skills system (`.claude/skills/` directory)
+   - ✓ Agents (`.claude/agents/` directory)
 
 4. **Version Detection**:
    - Shows "✓ Valid CMAT v5.0 Project" if all checks pass
@@ -844,7 +849,7 @@ Click **Save Template**
 4. Click **Save Template**
 
 **What gets updated**:
-- `.claude/queues/workflow_templates.json`
+- `.claude/data/workflow_templates.json`
 - All UI components refresh with new configuration
 
 ### Deleting a Template
@@ -1438,20 +1443,22 @@ Configure Claude API for AI-powered features.
 
 #### "Not a valid CMAT project"
 
-**Cause**: Directory structure doesn't match CMAT v5.0.
+**Cause**: Directory structure doesn't match CMAT v8.2+.
 
 **Solutions**:
 1. Verify selecting **project root**, not `.claude/` directory
-2. Check `.claude/scripts/cmat.sh` exists
-3. Check `.claude/queues/workflow_templates.json` exists
+2. Check `.claude/cmat/` directory exists with Python modules
+3. Check `.claude/data/workflow_templates.json` exists
 
-#### "CMAT script not found"
+#### "CMAT not properly installed"
 
-**Cause**: Invalid path to `cmat.sh`.
+**Cause**: Missing CMAT Python modules or incomplete installation.
 
 **Solutions**:
-1. Use File > Connect... to browse
-2. Verify execute permissions: `chmod +x .claude/scripts/cmat.sh`
+1. Use File > Connect... to browse for project
+2. Verify `.claude/` directory exists with proper structure
+3. Check that CMAT v8.2+ is installed in the project
+4. Reinstall CMAT using File > Install CMAT Template...
 
 ### Workflow Issues 
 
@@ -1580,8 +1587,8 @@ A: Yes! All features work except AI-powered generation. You'll write description
 **Q: Can I create workflows with different numbers of steps?**  
 A: Absolutely! CMAT supports workflows of any length (2 steps, 10 steps, whatever you need).
 
-**Q: Where are workflow templates stored?**  
-A: In `.claude/queues/workflow_templates.json`
+**Q: Where are workflow templates stored?**
+A: In `.claude/data/workflow_templates.json`
 
 **Q: Can agents be reused across workflows?**  
 A: Yes! Agents are assignable to any number of workflows. Same agent, different workflows, different behavior.
