@@ -249,7 +249,11 @@ class CMATInterface:
 
     def start_workflow(self, workflow_name: str, enhancement_name: str):
         """Start a workflow."""
-        task_id = self.cmat.workflow.start_workflow(workflow_name, enhancement_name)
+        # Create task but don't execute yet (execute=False)
+        # UI handles async execution in its own thread
+        task_id = self.cmat.workflow.start_workflow(
+            workflow_name, enhancement_name, execute=False
+        )
 
         # Execute first task asynchronously
         def execute():
@@ -260,7 +264,7 @@ class CMATInterface:
 
         thread = threading.Thread(target=execute, daemon=True)
         thread.start()
-        return None
+        return task_id
 
     def get_workflow_templates(self) -> List:
         """Get all workflow templates."""
@@ -306,16 +310,15 @@ class CMATInterface:
             return None
 
         return WorkflowTemplate.from_dict(
-            cmat_template.slug,
+            cmat_template.id,
             {
                 'name': cmat_template.name,
                 'description': cmat_template.description,
                 'steps': [
                     {
                         'agent': step.agent,
-                        'input': step.input_pattern,
+                        'input': step.input,
                         'required_output': step.required_output,
-                        'description': step.description or '',
                         'on_status': {
                             status: {
                                 'next_step': trans.next_step,
@@ -338,7 +341,7 @@ class CMATInterface:
         step = template.steps[step_index]
         return {
             'agent': step.agent,
-            'input': step.input_pattern,
+            'input': step.input,
             'required_output': step.required_output,
             'on_status': {
                 status: {
@@ -346,8 +349,7 @@ class CMATInterface:
                     'auto_chain': trans.auto_chain
                 }
                 for status, trans in (step.on_status or {}).items()
-            },
-            'description': step.description or ''
+            }
         }
 
     def get_step_expected_statuses(self, workflow_name: str, step_index: int) -> List[str]:
@@ -536,7 +538,7 @@ class CMATInterface:
                 is_valid = False
 
             # Check required fields
-            if not step.input_pattern:
+            if not step.input:
                 messages.append(f"Step {i+1}: Missing input pattern")
                 is_valid = False
             if not step.required_output:
@@ -574,7 +576,7 @@ class CMATInterface:
             "skills": [
                 {
                     "name": skill.name,
-                    "directory": skill.directory,
+                    "directory": skill.skill_directory,
                     "category": skill.category,
                     "description": skill.description or ""
                 }
