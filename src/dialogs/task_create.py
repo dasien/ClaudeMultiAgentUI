@@ -16,7 +16,7 @@ class CreateTaskDialog(BaseDialog):
 
     def __init__(self, parent, queue_interface):
         # Initialize base class
-        BaseDialog.__init__(self, parent, "Create New Task", 700, 800)
+        BaseDialog.__init__(self, parent, "Create New Task", 900, 800)
 
         self.queue = queue_interface
         self.should_start = False
@@ -67,13 +67,22 @@ class CreateTaskDialog(BaseDialog):
 
         # Task Type
         type_col = ttk.Frame(config_frame)
-        type_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        type_col.pack(side="left", fill="x", expand=True, padx=(5, 5))
         ttk.Label(type_col, text="Task Type: *").pack(anchor="w")
         self.task_type_var = tk.StringVar()
         task_type_combo = ttk.Combobox(type_col, textvariable=self.task_type_var, state='readonly')
         task_type_combo['values'] = list(self.task_types_map.values())
         task_type_combo.current(0)
         task_type_combo.pack(fill="x")
+
+        # Model Selection
+        model_col = ttk.Frame(config_frame)
+        model_col.pack(side="left", fill="x", expand=True, padx=(5, 0))
+        ttk.Label(model_col, text="Model:").pack(anchor="w")
+
+        from ..components.model_selector import ModelSelectorFrame
+        self.model_selector = ModelSelectorFrame(model_col, self.queue, show_default_option=True)
+        self.model_selector.pack(fill="x")
 
         # Skills Preview Frame
         self.skills_frame = ttk.LabelFrame(main_frame, text="🎯 Agent Skills", padding=10)
@@ -236,9 +245,19 @@ class CreateTaskDialog(BaseDialog):
             scroll.pack(side="right", fill="y")
 
             text_widget.insert('1.0', skills_prompt)
-            text_widget.config(state=tk.DISABLED)
+            # Keep text widget editable so user can select and copy
 
-            ttk.Button(preview, text="Close", command=preview.destroy).pack(pady=10)
+            # Button frame
+            button_frame = ttk.Frame(preview)
+            button_frame.pack(pady=10)
+
+            def copy_to_clipboard():
+                preview.clipboard_clear()
+                preview.clipboard_append(skills_prompt)
+                messagebox.showinfo("Copied", "Skills prompt copied to clipboard!")
+
+            ttk.Button(button_frame, text="Copy to Clipboard", command=copy_to_clipboard).pack(side="left", padx=5)
+            ttk.Button(button_frame, text="Close", command=preview.destroy).pack(side="left", padx=5)
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load skills prompt: {e}")
@@ -344,6 +363,9 @@ class CreateTaskDialog(BaseDialog):
         source_file = self.source_var.get().strip()
         description = self.description_text.get('1.0', tk.END).strip()
 
+        # Get selected model (None = use default)
+        model = self.model_selector.get_selected_model()
+
         # Convert to keys
         agent = self.get_agent_key(agent_display)
         task_type = self.get_task_type_key(task_type_display)
@@ -360,6 +382,7 @@ class CreateTaskDialog(BaseDialog):
                 task_type=task_type,
                 source_file=source_file,
                 description=description,
+                model=model,  # Pass selected model to CMAT
                 auto_complete=True,  # Always true for standalone tasks
                 auto_chain=False     # Always false for standalone tasks
             )

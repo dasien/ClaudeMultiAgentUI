@@ -60,6 +60,23 @@ class WorkflowStepEditorDialog(BaseDialog):
         agent_combo.pack(fill="x", pady=(0, 15))
         agent_combo.bind('<<ComboboxSelected>>', self.on_agent_selected)
 
+        # Model Selection (optional)
+        ttk.Label(main_frame, text="Model (optional):", font=('Arial', 10, 'bold')).pack(anchor="w", pady=(0, 5))
+        ttk.Label(
+            main_frame,
+            text="Leave as default to use project's default model",
+            font=('Arial', 8),
+            foreground='gray'
+        ).pack(anchor="w", pady=(0, 5))
+
+        from ..components.model_selector import ModelSelectorFrame
+        self.model_selector = ModelSelectorFrame(main_frame, self.queue, show_default_option=True)
+        self.model_selector.pack(fill="x", pady=(0, 15))
+
+        # Load existing model if editing
+        if self.existing_step and self.existing_step.get('model'):
+            self.model_selector.set_model(self.existing_step['model'])
+
         # Input pattern
         ttk.Label(main_frame, text="Input Pattern: *", font=('Arial', 10, 'bold')).pack(anchor="w")
 
@@ -287,11 +304,15 @@ class WorkflowStepEditorDialog(BaseDialog):
             messagebox.showerror("Error", "Agent not found")
             return
 
+        # Get selected model (None = use default)
+        model = self.model_selector.get_selected_model()
+
         # Build result
         result = {
             'agent': agent_key,
             'input': self.input_var.get().strip(),
             'required_output': self.output_var.get().strip(),
+            'model': model,  # Add model selection
             'on_status': self.transitions.copy()
         }
 

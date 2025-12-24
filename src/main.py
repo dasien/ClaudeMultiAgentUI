@@ -938,9 +938,7 @@ class MainView:
             dialog = WorkflowTemplateManagerDialog(self.root, self.queue)
 
         except Exception as e:
-            print(f"DEBUG: Error creating dialog: {e}")
-            import traceback
-            traceback.print_exc()
+            messagebox.showerror("Error", f"Failed to open workflow templates: {e}")
 
     def show_enhancement_generator(self):
         """Show enhancement generator dialog."""

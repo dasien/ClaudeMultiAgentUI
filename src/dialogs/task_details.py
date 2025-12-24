@@ -80,6 +80,9 @@ class TaskDetailsDialog(BaseDialog):
         if workflow_name:
             self._build_workflow_section(scrollable_frame, workflow_name)
 
+        # MODEL INFORMATION
+        self._build_model_section(scrollable_frame)
+
         # Two-column layout for task info and cost
         columns_frame = ttk.Frame(scrollable_frame)
         columns_frame.pack(fill="x", pady=(0, 10))
@@ -108,7 +111,19 @@ class TaskDetailsDialog(BaseDialog):
             ttk.Label(row_frame, text=str(value), font=('Arial', 9)).pack(side="left")
 
         # Right column: Cost Information
-        right_column = ttk.LabelFrame(columns_frame, text="COST INFORMATION", padding=10)
+        # Show model name in header if available
+        cost_model = self.task.metadata.get('cost_model') if self.task.metadata else None
+        header_text = "COST INFORMATION"
+        if cost_model:
+            # Try to get short model name
+            try:
+                model_obj = self.queue.models.get(cost_model)
+                model_name = model_obj.name if model_obj else cost_model
+            except:
+                model_name = cost_model
+            header_text = f"COST INFORMATION ({model_name})"
+
+        right_column = ttk.LabelFrame(columns_frame, text=header_text, padding=10)
         right_column.pack(side="left", fill="both", expand=True, padx=(5, 0))
 
         cost_data = self.get_cost_data()
@@ -330,6 +345,44 @@ class TaskDetailsDialog(BaseDialog):
                 font=('Arial', 10),
                 foreground='orange'
             ).pack(anchor="w")
+
+    def _build_model_section(self, parent):
+        """Build model information section."""
+        requested_model = self.task.metadata.get('requested_model') if self.task.metadata else None
+        cost_model = self.task.metadata.get('cost_model') if self.task.metadata else None
+
+        # Only show section if we have model info
+        if not (requested_model or cost_model):
+            return
+
+        model_frame = ttk.LabelFrame(parent, text="🤖 MODEL INFORMATION", padding=10)
+        model_frame.pack(fill="x", pady=(0, 10))
+
+        if requested_model:
+            # Try to get model details from CMAT
+            try:
+                model_obj = self.queue.models.get(requested_model)
+                display_name = f"{model_obj.name} ({requested_model})" if model_obj else requested_model
+            except:
+                display_name = requested_model
+
+            row = ttk.Frame(model_frame)
+            row.pack(fill="x", pady=2)
+            ttk.Label(row, text="Requested Model:", font=('Arial', 9, 'bold'), width=16).pack(side="left")
+            ttk.Label(row, text=display_name, font=('Arial', 9)).pack(side="left")
+
+        if cost_model and cost_model != requested_model:
+            # Show actual model if different from requested
+            try:
+                model_obj = self.queue.models.get(cost_model)
+                display_name = f"{model_obj.name} ({cost_model})" if model_obj else cost_model
+            except:
+                display_name = cost_model
+
+            row = ttk.Frame(model_frame)
+            row.pack(fill="x", pady=2)
+            ttk.Label(row, text="Actual Model Used:", font=('Arial', 9, 'bold'), width=16).pack(side="left")
+            ttk.Label(row, text=display_name, font=('Arial', 9), foreground='blue').pack(side="left")
 
     def build_details_tab(self, parent):
         """Build Prompt tab."""

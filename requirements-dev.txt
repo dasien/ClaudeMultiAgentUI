@@ -1,0 +1,15 @@
+# Development and Testing Requirements
+# Install with: pip install -r requirements-dev.txt
+
+# Testing
+pytest>=8.0.0
+pytest-cov>=4.1.0  # Code coverage
+pytest-mock>=3.12.0  # Mocking support
+
+# Code quality
+black>=24.0.0  # Code formatting
+mypy>=1.8.0  # Type checking
+ruff>=0.1.0  # Fast linting
+
+# Optional but useful
+pytest-xdist>=3.5.0  # Parallel test execution

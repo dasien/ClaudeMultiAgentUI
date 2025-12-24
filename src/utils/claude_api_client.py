@@ -64,8 +64,6 @@ class ClaudeAPIClient:
                 from ..config import ClaudeConfig
                 timeout = ClaudeConfig.DEFAULT_TIMEOUT
 
-        print(f"[DEBUG] Claude API call - Model: {model}, Max Tokens: {max_tokens}, Timeout: {timeout}s")
-
         # Build request
         headers = {
             "x-api-key": api_key,

@@ -72,8 +72,14 @@ class CMATInterface:
 
     def add_task(self, title: str, agent: str, priority: str,
                  task_type: str, source_file: str, description: str,
-                 auto_complete: bool = False, auto_chain: bool = False) -> str:
-        """Add a new task to the queue."""
+                 auto_complete: bool = False, auto_chain: bool = False,
+                 model: Optional[str] = None) -> str:
+        """Add a new task to the queue.
+
+        Args:
+            model: Optional Claude model ID to use (e.g., "claude-sonnet-4-20250514").
+                   If None, uses the project's default model.
+        """
         task = self.cmat.queue.add(
             title=title,
             assigned_agent=agent,
@@ -83,6 +89,7 @@ class CMATInterface:
             description=description,
             auto_complete=auto_complete,
             auto_chain=auto_chain,
+            model=model,
         )
         return task.id
 
@@ -247,12 +254,20 @@ class CMATInterface:
     # WORKFLOW COMMANDS
     # =========================================================================
 
-    def start_workflow(self, workflow_name: str, enhancement_name: str):
-        """Start a workflow."""
+    def start_workflow(self, workflow_name: str, enhancement_name: str,
+                       model: Optional[str] = None):
+        """Start a workflow.
+
+        Args:
+            model: Optional Claude model ID override for workflow execution.
+                   If None, uses model configured in workflow steps or project default.
+        """
         # Create task but don't execute yet (execute=False)
         # UI handles async execution in its own thread
         task_id = self.cmat.workflow.start_workflow(
-            workflow_name, enhancement_name, execute=False
+            workflow_name, enhancement_name,
+            model=model,
+            execute=False
         )
 
         # Execute first task asynchronously
@@ -334,6 +349,10 @@ class CMATInterface:
 
     def get_workflow_step_details(self, workflow_name: str, step_index: int) -> Optional[Dict]:
         """Get details for a specific workflow step."""
+        # Ensure step_index is an integer (may come from metadata as string)
+        if isinstance(step_index, str):
+            step_index = int(step_index)
+
         template = self.cmat.workflow.get(workflow_name)
         if not template or step_index >= len(template.steps):
             return None
@@ -604,7 +623,11 @@ class CMATInterface:
 
     def get_skills_prompt(self, agent: str) -> Optional[str]:
         """Build complete skills section for agent prompt."""
-        return self.cmat.skills.build_prompt(agent)
+        # Get agent's skills (returns list of skill directories)
+        agent_skills = self.get_agent_skills(agent)
+        if not agent_skills:
+            return None
+        return self.cmat.skills.build_skills_prompt(agent_skills)
 
     # =========================================================================
     # INTEGRATION COMMANDS (Placeholder - not in CMAT v8 yet)
