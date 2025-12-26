@@ -16,4 +16,5 @@ class QueueState:
     active_workflows: List[Task]
     completed_tasks: List[Task]
     failed_tasks: List[Task]
+    cancelled_tasks: List[Task]
     agent_status: Dict[str, AgentStatus]

@@ -50,11 +50,8 @@ class TestQueueOperations:
         )
         assert task_id is not None
 
-        # Clean up: remove the test task
-        try:
-            cmat_interface.cmat.queue.remove(task_id)
-        except:
-            pass  # Ignore cleanup errors
+        # Clean up: delete the test task
+        cmat_interface.clear_tasks([task_id])
 
     def test_add_task_without_model(self, cmat_interface):
         """Test that add_task works without model parameter (uses default)."""
@@ -68,11 +65,8 @@ class TestQueueOperations:
         )
         assert task_id is not None
 
-        # Clean up: remove the test task
-        try:
-            cmat_interface.cmat.queue.remove(task_id)
-        except:
-            pass  # Ignore cleanup errors
+        # Clean up: delete the test task
+        cmat_interface.clear_tasks([task_id])
 
 
 class TestWorkflowOperations:
@@ -218,11 +212,8 @@ class TestDataTransformations:
                 # Should have requested_model in metadata
                 assert 'requested_model' in task.metadata or task.metadata.get('requested_model') is not None
         finally:
-            # Clean up: remove the test task
-            try:
-                cmat_interface.cmat.queue.remove(task_id)
-            except:
-                pass  # Ignore cleanup errors
+            # Clean up: delete the test task
+            cmat_interface.clear_tasks([task_id])
 
 
 if __name__ == "__main__":

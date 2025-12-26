@@ -4,8 +4,6 @@ Agent Manager dialog for viewing and managing agents.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from pathlib import Path
-import json
 
 from .base_dialog import BaseDialog
 
@@ -17,8 +15,6 @@ class AgentListDialog(BaseDialog):
         super().__init__(parent, "Agent Manager", 900, 600)
         self.queue = queue_interface
         self.settings = settings
-        self.agents_file = self.queue.agents_file
-        self.agents_dir = self.queue.agents_file.parent
 
         self.build_ui()
         self.load_agents()
@@ -73,21 +69,15 @@ class AgentListDialog(BaseDialog):
         ])
 
     def load_agents(self):
-        """Load agents from agents.json."""
+        """Load agents via CMAT service."""
         for item in self.agent_tree.get_children():
             self.agent_tree.delete(item)
 
         try:
-            with open(self.agents_file, 'r') as f:
-                data = json.load(f)
-
-            # Handle both formats
-            agents = data.get('agents', []) if isinstance(data, dict) else data
+            agents_data = self.queue.get_agents_data()
+            agents = agents_data.get('agents', []) if agents_data else []
 
             for agent in agents:
-                if not isinstance(agent, dict):
-                    continue
-
                 name = agent.get('name', '')
                 agent_file = agent.get('agent-file', '')
                 description = agent.get('description', '')
@@ -138,7 +128,7 @@ class AgentListDialog(BaseDialog):
             self.load_agents()
 
     def delete_agent(self):
-        """Delete the selected agent."""
+        """Delete the selected agent via CMAT service."""
         selection = self.agent_tree.selection()
         if not selection:
             messagebox.showwarning("No Selection", "Please select an agent to delete.")
@@ -152,47 +142,13 @@ class AgentListDialog(BaseDialog):
         if not messagebox.askyesno(
                 "Confirm Delete",
                 f"Delete agent '{agent_name}'?\n\n"
-                f"This will:\n"
-                f"- Remove from agents.json\n"
-                f"- Remove from AGENT_CONTRACTS.json\n"
-                f"- Delete markdown file\n\n"
+                f"This will remove the agent and its configuration.\n\n"
                 f"Cannot be undone."
         ):
             return
 
         try:
-            # Remove from agents.json
-            with open(self.agents_file, 'r') as f:
-                data = json.load(f)
-
-            agents = data.get('agents', []) if isinstance(data, dict) else data
-            agents = [a for a in agents if a.get('agent-file') != agent_file]
-
-            if isinstance(data, dict):
-                data['agents'] = agents
-                with open(self.agents_file, 'w') as f:
-                    json.dump(data, f, indent=2)
-            else:
-                with open(self.agents_file, 'w') as f:
-                    json.dump(agents, f, indent=2)
-
-            # Remove from contracts
-            contracts_file = self.queue.project_root / ".claude/AGENT_CONTRACTS.json"
-            if contracts_file.exists():
-                with open(contracts_file, 'r') as f:
-                    contracts = json.load(f)
-
-                if "agents" in contracts and agent_file in contracts["agents"]:
-                    del contracts["agents"][agent_file]
-
-                    with open(contracts_file, 'w') as f:
-                        json.dump(contracts, f, indent=2)
-
-            # Delete markdown file
-            md_file = self.agents_dir / f"{agent_file}.md"
-            if md_file.exists():
-                md_file.unlink()
-
+            self.queue.delete_agent(agent_file)
             self.load_agents()
 
         except Exception as e:

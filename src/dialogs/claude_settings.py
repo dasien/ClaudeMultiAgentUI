@@ -1,7 +1,6 @@
 """
-Claude API Settings Dialog
+Claude API Key Dialog
 Manages Claude API key configuration.
-Model selection is now handled per-task and per-workflow-step.
 """
 
 import tkinter as tk
@@ -11,10 +10,10 @@ from .base_dialog import BaseDialog
 
 
 class ClaudeSettingsDialog(BaseDialog):
-    """Dialog for configuring Claude API settings."""
+    """Dialog for configuring Claude API key."""
 
     def __init__(self, parent, settings):
-        super().__init__(parent, "Claude API Settings", 600, 400, resizable=False)
+        super().__init__(parent, "Set Claude API Key", 500, 280, resizable=False)
         self.settings = settings
         self.build_ui()
         self.load_current_settings()
@@ -28,7 +27,7 @@ class ClaudeSettingsDialog(BaseDialog):
         # Title
         ttk.Label(
             main_frame,
-            text="Configure Claude API",
+            text="Set Claude API Key",
             font=('Arial', 14, 'bold')
         ).pack(pady=(0, 20))
 
@@ -62,21 +61,9 @@ class ClaudeSettingsDialog(BaseDialog):
             command=self.toggle_api_key_visibility
         ).pack(anchor="w")
 
-        # Info about model selection
-        info_frame = ttk.Frame(main_frame)
-        info_frame.pack(fill="x", pady=(0, 15))
-
-        ttk.Label(
-            info_frame,
-            text="ℹ️ Model selection is now configured per-task and per-workflow-step.\nManage available models using the Models Manager in the Tools menu.",
-            font=('Arial', 9),
-            foreground='gray',
-            wraplength=550
-        ).pack(anchor="w")
-
         # Buttons - Using BaseDialog helper
         self.create_button_frame(main_frame, [
-            ("Save Settings", self.save_settings),
+            ("Save", self.save_settings),
             ("Cancel", self.cancel)
         ])
 

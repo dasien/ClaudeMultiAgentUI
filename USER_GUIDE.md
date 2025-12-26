@@ -1,6 +1,6 @@
 # Claude Multi-Agent Workflow Manager - User Guide
 
-**Version 2.0.0 (CMAT v8.2+)**
+**Version 2.1.0 (CMAT v8.2+)**
 
 This guide provides comprehensive instructions for using the Claude Multi-Agent Manager, a graphical interface for the Claude Multi-Agent Template (CMAT) system.
 

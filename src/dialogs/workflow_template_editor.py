@@ -481,7 +481,7 @@ class WorkflowTemplateEditorDialog(BaseDialog):
         return True
 
     def save_template(self):
-        """Save the template directly to workflow_templates.json."""
+        """Save the template via CMAT service."""
         if not self.validate():
             return
 
@@ -490,18 +490,6 @@ class WorkflowTemplateEditorDialog(BaseDialog):
         description = self.description_var.get().strip()
 
         try:
-            templates_file = self.queue.project_root / ".claude/queues/workflow_templates.json"
-
-            # Load existing data
-            if templates_file.exists():
-                with open(templates_file, 'r') as f:
-                    data = json.load(f)
-            else:
-                data = {'version': '2.0.0', 'workflows': {}}
-
-            if 'workflows' not in data:
-                data['workflows'] = {}
-
             # Build workflow data
             workflow_data = {
                 'name': name,
@@ -509,21 +497,22 @@ class WorkflowTemplateEditorDialog(BaseDialog):
                 'steps': []
             }
 
-            # Add all steps
+            # Add all steps (including model field)
             for step in self.steps:
                 step_data = {
                     'agent': step['agent'],
                     'input': step.get('input', ''),
                     'required_output': step.get('required_output', ''),
+                    'model': step.get('model'),
                     'on_status': step.get('on_status', {})
                 }
                 workflow_data['steps'].append(step_data)
 
-            # Save
-            data['workflows'][slug] = workflow_data
-
-            with open(templates_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            # Save via CMAT service
+            if self.mode == 'create':
+                self.queue.create_workflow_template(slug, workflow_data)
+            else:
+                self.queue.save_workflow_template(slug, workflow_data)
 
             self.close(result=slug)
 

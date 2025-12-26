@@ -5,8 +5,6 @@ Simplified - agents are just capabilities, no workflow orchestration.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-from pathlib import Path
-import json
 
 from .base_dialog import BaseDialog
 from ..utils import to_slug, validate_slug
@@ -24,9 +22,6 @@ class AgentDetailsDialog(BaseDialog):
         self.queue = queue_interface
         self.mode = mode
         self.agent_file = agent_file
-
-        self.agents_dir = self.queue.agents_file.parent
-        self.agents_json_file = self.queue.agents_file
 
         # Load data
         self.tools_data = self.queue.get_tools_data()
@@ -445,12 +440,11 @@ class AgentDetailsDialog(BaseDialog):
         return True
 
     def load_agent_data(self):
-        """Load existing agent for editing."""
+        """Load existing agent for editing via CMAT service."""
         try:
-            with open(self.agents_json_file, 'r') as f:
-                data = json.load(f)
-
-            agents = data.get('agents', []) if isinstance(data, dict) else data
+            # Get agent from CMAT service
+            agents_data = self.queue.get_agents_data()
+            agents = agents_data.get('agents', []) if agents_data else []
             agent_data = next((a for a in agents if a.get('agent-file') == self.agent_file), None)
 
             if not agent_data:
@@ -475,21 +469,17 @@ class AgentDetailsDialog(BaseDialog):
                 var.set(skill_dir in skills)
             self.update_skills_summary()
 
-            # Load markdown
-            md_file = self.agents_dir / f"{self.agent_file}.md"
-            if md_file.exists():
-                with open(md_file, 'r') as f:
-                    content = f.read()
-                    parts = content.split('---', 2)
-                    if len(parts) >= 3:
-                        self.details_text.insert('1.0', parts[2].strip())
+            # Load agent instructions via CMAT interface
+            agent_full = self.queue.get_agent(self.agent_file)
+            if agent_full and agent_full.get('instructions'):
+                self.details_text.insert('1.0', agent_full['instructions'])
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load: {e}")
             self.cancel()
 
     def save_agent(self):
-        """Save the agent (v5.0 - simplified)."""
+        """Save the agent via CMAT service."""
         if not self.validate():
             return
 
@@ -500,69 +490,34 @@ class AgentDetailsDialog(BaseDialog):
         role = self.role_var.get().strip()
         details = self.details_text.get('1.0', tk.END).strip()
 
-        tools = [name for name, var in self.tool_checkboxes.items() if var.get()]
+        tools = [t for t, var in self.tool_checkboxes.items() if var.get()]
         skills = [skill_dir for skill_dir, var in self.skill_checkboxes.items() if var.get()]
 
         try:
-            # Update agents.json
-            with open(self.agents_json_file, 'r') as f:
-                data = json.load(f)
+            # Build agent data
+            agent_data = {
+                "name": name,
+                "agent-file": file_slug,
+                "role": role,
+                "tools": tools,
+                "skills": skills,
+                "description": description,
+                "instructions": details,
+                "validations": {
+                    "metadata_required": True
+                }
+            }
 
-            agents = data.get('agents', []) if isinstance(data, dict) else data
-
+            # Save via CMAT service
             if self.mode == 'create':
-                if any(a.get('agent-file') == file_slug for a in agents):
+                # Check for duplicates
+                existing = self.queue.get_agent_list()
+                if file_slug in existing:
                     messagebox.showerror("Duplicate", f"Agent '{file_slug}' already exists.")
                     return
-
-                agents.append({
-                    "name": name,
-                    "agent-file": file_slug,
-                    "role": role,
-                    "tools": tools,
-                    "skills": skills,
-                    "description": description,
-                    "validations": {
-                        "metadata_required": True
-                    }
-                })
+                self.queue.create_agent(agent_data)
             else:
-                for agent in agents:
-                    if agent.get('agent-file') == file_slug:
-                        agent['name'] = name
-                        agent['role'] = role
-                        agent['tools'] = tools
-                        agent['skills'] = skills
-                        agent['description'] = description
-                        # Preserve validations if exists
-                        if 'validations' not in agent:
-                            agent['validations'] = {"metadata_required": True}
-                        break
-
-            # Save agents.json
-            if isinstance(data, dict):
-                data['agents'] = agents
-                with open(self.agents_json_file, 'w') as f:
-                    json.dump(data, f, indent=2)
-            else:
-                with open(self.agents_json_file, 'w') as f:
-                    json.dump(agents, f, indent=2)
-
-            # Create markdown file
-            md_content = f"""---
-name: "{name}"
-description: "{description}"
-role: "{role}"
-tools: {json.dumps(tools)}
-skills: {json.dumps(skills)}
----
-
-{details}
-"""
-
-            md_file = self.agents_dir / f"{file_slug}.md"
-            with open(md_file, 'w') as f:
-                f.write(md_content)
+                self.queue.update_agent(file_slug, agent_data)
 
             # Success
             self.close(result=file_slug)

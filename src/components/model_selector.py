@@ -38,8 +38,8 @@ class ModelSelectorFrame(ttk.Frame):
             options = []
 
             if self.show_default_option and default_model:
-                # First option: Use Default with model name
-                self.default_key = f"⭐ Use Default ({default_model.name})"
+                # First option: Show default model name with (Default) suffix
+                self.default_key = f"⭐ {default_model.name} (Default)"
                 options.append(self.default_key)
                 self.model_map[self.default_key] = None  # None = use default
 

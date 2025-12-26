@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-This document describes the process to get up and running with the Claude Multi-Agent Workflow Manager v2.0.0 (CMAT v8.2+).
+This document describes the process to get up and running with the Claude Multi-Agent Workflow Manager v2.1.0 (CMAT v8.2+).
 
 ## Prerequisites
 

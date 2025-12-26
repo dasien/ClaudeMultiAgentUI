@@ -40,7 +40,6 @@ class MainView:
         # State
         self.state = QueueUIState()
         self.state.connection_state = ConnectionState.DISCONNECTED
-        self.state.auto_refresh_enabled = False
         self.state.auto_refresh_interval = Config.AUTO_REFRESH_INTERVAL
         self.auto_refresh_timer = None
 
@@ -142,6 +141,7 @@ class MainView:
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Cancel All", command=self.cancel_all_tasks)
         tasks_menu.add_command(label="Clear Finished...", command=self.clear_finished_tasks)
+        tasks_menu.add_command(label="Clear Cancelled...", command=self.clear_cancelled_tasks)
         tasks_menu.add_separator()
         tasks_menu.add_command(label="Refresh List", command=self.refresh, accelerator="F5")
         self.menus['tasks'] = menubar.index("Tasks")
@@ -166,12 +166,6 @@ class MainView:
         learnings_menu.add_command(label="Browse...", command=self.show_learnings_browser, accelerator="Ctrl+R")
         self.menus['learnings'] = menubar.index("Learnings")
 
-        # Models menu (requires connection)
-        models_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Models", menu=models_menu, state="disabled")
-        models_menu.add_command(label="Manage...", command=self.show_models_manager)
-        self.menus['models'] = menubar.index("Models")
-
         # Integration menu (requires connection)
         integration_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Integration", menu=integration_menu, state="disabled")
@@ -187,14 +181,12 @@ class MainView:
         logs_menu.add_command(label="View Operations Log", command=self.show_operations_log, accelerator="Ctrl+L")
         self.menus['logs'] = menubar.index("Logs")
 
-        # Settings menu (always enabled)
-        settings_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Settings", menu=settings_menu)
-
-        self.auto_refresh_var = tk.BooleanVar(value=False)
-        settings_menu.add_command(label="Claude Settings", command=self.configure_api_key)
-        settings_menu.add_separator()
-        settings_menu.add_checkbutton(label="Auto Refresh Task List", variable=self.auto_refresh_var, command=self.toggle_auto_refresh)
+        # Claude menu (always enabled for API key, models requires connection)
+        self.claude_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Claude", menu=self.claude_menu)
+        self.claude_menu.add_command(label="Set API Key...", command=self.configure_api_key)
+        self.claude_menu.add_separator()
+        self.claude_menu.add_command(label="Manage Models...", command=self.show_models_manager, state="disabled")
 
         # About menu (always enabled)
         about_menu = tk.Menu(menubar, tearoff=0)
@@ -208,9 +200,12 @@ class MainView:
         """Enable or disable menus based on connection state."""
         state = "normal" if connected else "disabled"
 
-        for menu_name in ['workflows', 'enhancements', 'tasks', 'agents', 'skills', 'learnings', 'models', 'integration', 'logs']:
+        for menu_name in ['workflows', 'enhancements', 'tasks', 'agents', 'skills', 'learnings', 'integration', 'logs']:
             if menu_name in self.menus:
                 self.menubar.entryconfig(self.menus[menu_name], state=state)
+
+        # Enable/disable "Manage Models..." in Claude menu (index 2)
+        self.claude_menu.entryconfig(2, state=state)
 
         # Keyboard shortcuts
         self.root.bind('<Control-o>', lambda e: self.show_connect_dialog())
@@ -249,18 +244,67 @@ class MainView:
         self.version_label.pack(side="right", padx=10)
 
     def build_task_table(self):
-        """Create main task table with external links column."""
+        """Create split-pane task view with status list and task details."""
         table_frame = ttk.Frame(self.root, padding=10)
         table_frame.pack(fill="both", expand=True)
 
         label_frame = ttk.LabelFrame(table_frame, text="TASK QUEUE", padding=5)
         label_frame.pack(fill="both", expand=True)
 
-        tree_frame = ttk.Frame(label_frame)
+        # Create horizontal paned window
+        self.paned = ttk.PanedWindow(label_frame, orient="horizontal")
+        self.paned.pack(fill="both", expand=True)
+
+        # === Left Pane: Status List ===
+        left_frame = ttk.Frame(self.paned)
+        self.paned.add(left_frame, weight=0)
+
+        # Status listbox with scrollbar
+        status_label = ttk.Label(left_frame, text="Status", font=('Arial', 10, 'bold'))
+        status_label.pack(pady=(0, 5))
+
+        status_list_frame = ttk.Frame(left_frame)
+        status_list_frame.pack(fill="both", expand=True)
+
+        self.status_listbox = tk.Listbox(
+            status_list_frame,
+            font=('Arial', 11),
+            selectmode='browse',
+            activestyle='dotbox',
+            width=20,
+            exportselection=False
+        )
+        status_scrollbar = ttk.Scrollbar(status_list_frame, orient="vertical", command=self.status_listbox.yview)
+        self.status_listbox.configure(yscrollcommand=status_scrollbar.set)
+
+        self.status_listbox.pack(side="left", fill="both", expand=True)
+        status_scrollbar.pack(side="right", fill="y")
+
+        # Bind status selection
+        self.status_listbox.bind('<<ListboxSelect>>', self.on_status_select)
+
+        # Define status configuration
+        self.status_config = [
+            ('pending', 'Pending', '#E3F2FD'),      # Light blue
+            ('active', 'Active', '#FFF3E0'),        # Light orange
+            ('completed', 'Completed', '#E8F5E9'),  # Light green
+            ('failed', 'Failed', '#FFEBEE'),        # Light red
+            ('cancelled', 'Cancelled', '#EEEEEE'),  # Light grey
+        ]
+
+        # Track current status selection
+        self.current_status = 'pending'
+
+        # === Right Pane: Task Details ===
+        right_frame = ttk.Frame(self.paned)
+        self.paned.add(right_frame, weight=1)
+
+        # Task tree
+        tree_frame = ttk.Frame(right_frame)
         tree_frame.pack(fill="both", expand=True)
 
-        # Columns: Task ID, Workflow, Title, Enhancement, Agent, Status
-        columns = ('task_id', 'workflow', 'title', 'enhancement', 'agent', 'status')
+        # Columns: Task ID, Workflow, Title, Enhancement, Agent
+        columns = ('task_id', 'workflow', 'title', 'enhancement', 'agent')
         self.task_tree = ttk.Treeview(
             tree_frame,
             columns=columns,
@@ -273,14 +317,12 @@ class MainView:
         self.task_tree.heading('title', text='Title', command=lambda: self.sort_by('title'))
         self.task_tree.heading('enhancement', text='Enhancement', command=lambda: self.sort_by('enhancement'))
         self.task_tree.heading('agent', text='Agent', command=lambda: self.sort_by('agent'))
-        self.task_tree.heading('status', text='Status', command=lambda: self.sort_by('status'))
 
         self.task_tree.column('task_id', width=160, minwidth=120)
         self.task_tree.column('workflow', width=180, minwidth=150)
         self.task_tree.column('title', width=300, minwidth=200)
         self.task_tree.column('enhancement', width=200, minwidth=150)
         self.task_tree.column('agent', width=150, minwidth=120)
-        self.task_tree.column('status', width=90, minwidth=80)
 
         # Scrollbars
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.task_tree.yview)
@@ -293,6 +335,14 @@ class MainView:
 
         tree_frame.columnconfigure(0, weight=1)
         tree_frame.rowconfigure(0, weight=1)
+
+        # Empty state label (shown when no tasks in selected status)
+        self.empty_label = ttk.Label(
+            right_frame,
+            text="No tasks",
+            font=('Arial', 12),
+            foreground='gray'
+        )
 
         # Hint
         ttk.Label(
@@ -311,6 +361,20 @@ class MainView:
         self.sort_column = None
         self.sort_reverse = False
 
+        # Store tasks by status for quick access
+        self.tasks_by_status = {}
+
+    def on_status_select(self, event=None):
+        """Handle status selection change."""
+        selection = self.status_listbox.curselection()
+        if not selection:
+            return
+
+        index = selection[0]
+        if index < len(self.status_config):
+            self.current_status = self.status_config[index][0]
+            self.update_task_list()
+
     def build_status_bar(self):
         """Create status bar."""
         status_frame = ttk.Frame(self.root, relief="sunken", padding=2)
@@ -319,7 +383,7 @@ class MainView:
         self.status_label = ttk.Label(status_frame, text="Not connected", font=('Arial', 9))
         self.status_label.pack(side="left", padx=5)
 
-        self.refresh_label = ttk.Label(status_frame, text="Auto-refresh: OFF", font=('Arial', 9))
+        self.refresh_label = ttk.Label(status_frame, text=f"Auto-refresh: {Config.AUTO_REFRESH_INTERVAL}s", font=('Arial', 9))
         self.refresh_label.pack(side="right", padx=5)
 
     def configure_styles(self):
@@ -328,11 +392,16 @@ class MainView:
         style.configure('Connection.TFrame', background='#F0F0F0')
         style.configure('Connection.TLabel', background='#F0F0F0')
 
-        self.task_tree.tag_configure('pending', background='white')
-        self.task_tree.tag_configure('active', background='#FFF9E6')
-        self.task_tree.tag_configure('completed', background='#E8F5E9')  # Green - success
-        self.task_tree.tag_configure('completed_blocked', background='#FFF3CD')  # Yellow - blocked/warning
-        self.task_tree.tag_configure('failed', background='#FFEBEE')
+        # Status group header styles (parent rows)
+        self.task_tree.tag_configure('header_pending', background='#E3F2FD', font=('Arial', 10, 'bold'))  # Light blue
+        self.task_tree.tag_configure('header_active', background='#FFF3E0', font=('Arial', 10, 'bold'))   # Light orange
+        self.task_tree.tag_configure('header_completed', background='#E8F5E9', font=('Arial', 10, 'bold'))  # Light green
+        self.task_tree.tag_configure('header_failed', background='#FFEBEE', font=('Arial', 10, 'bold'))    # Light red
+        self.task_tree.tag_configure('header_cancelled', background='#EEEEEE', font=('Arial', 10, 'bold'))  # Light grey
+
+        # Task row styles (child rows) - plain white, no colors
+        self.task_tree.tag_configure('task', background='white')
+        self.task_tree.tag_configure('task_blocked', background='#FFF3CD')  # Yellow - blocked/warning
 
     def update_ui_state(self):
         """Update UI based on connection state."""
@@ -358,8 +427,8 @@ class MainView:
             version = self.queue.get_version()
             self.version_label.config(text=f"CMAT v{version}")
 
-            if self.state.auto_refresh_enabled:
-                self.start_auto_refresh()
+            # Start auto-refresh (always on)
+            self.start_auto_refresh()
 
             # Enable menus that require connection
             self.update_menu_states(connected=True)
@@ -485,93 +554,113 @@ class MainView:
         return False
 
     def refresh(self):
-        """Refresh task list."""
+        """Refresh task list with split-pane status view."""
         if self.state.connection_state != ConnectionState.CONNECTED:
             return
 
         try:
-            # Preserve selection before clearing
-            selected_task_ids = []
+            # Preserve task selection
+            selected_task_id = None
             selection = self.task_tree.selection()
             if selection:
-                for item_id in selection:
-                    values = self.task_tree.item(item_id, 'values')
-                    if values:
-                        selected_task_ids.append(values[0])
+                values = self.task_tree.item(selection[0], 'values')
+                if values and values[0]:
+                    selected_task_id = values[0]
 
+            # Get queue state
             queue_state = self.queue.get_queue_state()
 
-            # Clear
-            for item in self.task_tree.get_children():
-                self.task_tree.delete(item)
+            # Store tasks by status
+            self.tasks_by_status = {
+                'pending': queue_state.pending_tasks,
+                'active': queue_state.active_workflows,
+                'completed': queue_state.completed_tasks[-50:],  # Limit completed
+                'failed': queue_state.failed_tasks,
+                'cancelled': queue_state.cancelled_tasks,
+            }
 
-            # Combine tasks
-            all_tasks = (
-                    queue_state.pending_tasks +
-                    queue_state.active_workflows +
-                    queue_state.completed_tasks[-50:] +
-                    queue_state.failed_tasks
-            )
+            # Update status listbox
+            self.status_listbox.delete(0, tk.END)
+            for i, (status_key, status_label, _) in enumerate(self.status_config):
+                count = len(self.tasks_by_status.get(status_key, []))
+                self.status_listbox.insert(tk.END, f"{status_label} ({count})")
 
-            # Sort tasks: by status (pending, active, completed, failed), then by task_id descending
-            status_order = {'pending': 0, 'active': 1, 'completed': 2, 'failed': 3}
-            all_tasks.sort(key=lambda t: (status_order.get(t.status, 99), t.id), reverse=False)
-            # Reverse the task_id within each status group by sorting again with reverse on second key
-            all_tasks.sort(key=lambda t: t.id, reverse=True)
-            all_tasks.sort(key=lambda t: status_order.get(t.status, 99))
+            # Select current status in listbox
+            for i, (status_key, _, _) in enumerate(self.status_config):
+                if status_key == self.current_status:
+                    self.status_listbox.selection_set(i)
+                    break
 
-            # Populate and track items for re-selection
-            task_id_to_item = {}
-            for task in all_tasks:
-                status_display = task.status.capitalize()
+            # Update task list for current status
+            self.update_task_list(selected_task_id)
 
-                # Extract workflow name and enhancement title from metadata
-                workflow_name = ''
-                enhancement_title = ''
-                if task.metadata and isinstance(task.metadata, dict):
-                    workflow_name = task.metadata.get('workflow_name', '')
-                    enhancement_title = task.metadata.get('enhancement_title', '')
-
-                # Determine tag based on status and whether it's blocked
-                if task.status.lower() == 'completed':
-                    if self.is_blocked_status(task):
-                        tag = 'completed_blocked'
-                    else:
-                        tag = 'completed'
-                else:
-                    tag = task.status.lower()
-
-                item_id = self.task_tree.insert(
-                    '',
-                    tk.END,
-                    values=(
-                        task.id,
-                        workflow_name,
-                        task.title,
-                        enhancement_title,
-                        task.assigned_agent,
-                        status_display
-                    ),
-                    tags=(tag,)
-                )
-                task_id_to_item[task.id] = item_id
-
-            # Restore selection
-            if selected_task_ids:
-                for task_id in selected_task_ids:
-                    if task_id in task_id_to_item:
-                        self.task_tree.selection_add(task_id_to_item[task_id])
-
-            # Update status
+            # Update status bar
             self.status_label.config(
                 text=f"{len(queue_state.pending_tasks)} Pending | "
                      f"{len(queue_state.active_workflows)} Active | "
                      f"{len(queue_state.completed_tasks)} Completed | "
-                     f"{len(queue_state.failed_tasks)} Failed"
+                     f"{len(queue_state.failed_tasks)} Failed | "
+                     f"{len(queue_state.cancelled_tasks)} Cancelled"
             )
 
         except Exception as e:
             messagebox.showerror("Refresh Error", f"Failed to refresh: {e}")
+
+    def update_task_list(self, selected_task_id=None):
+        """Update the task list for the currently selected status."""
+        # Clear task tree
+        for item in self.task_tree.get_children():
+            self.task_tree.delete(item)
+
+        # Get tasks for current status
+        tasks = self.tasks_by_status.get(self.current_status, [])
+
+        if not tasks:
+            # Show empty state
+            self.empty_label.place(relx=0.5, rely=0.5, anchor='center')
+            status_label = dict((k, l) for k, l, _ in self.status_config).get(self.current_status, self.current_status)
+            self.empty_label.config(text=f"No {status_label.lower()} tasks")
+            return
+        else:
+            # Hide empty state
+            self.empty_label.place_forget()
+
+        # Sort tasks by ID descending (newest first)
+        sorted_tasks = sorted(tasks, key=lambda t: t.id, reverse=True)
+
+        # Populate task tree
+        task_id_to_item = {}
+        for task in sorted_tasks:
+            # Extract workflow name and enhancement title from metadata
+            workflow_name = ''
+            enhancement_title = ''
+            if task.metadata and isinstance(task.metadata, dict):
+                workflow_name = task.metadata.get('workflow_name', '')
+                enhancement_title = task.metadata.get('enhancement_title', '')
+
+            # Determine tag - use task_blocked for blocked completed tasks
+            if self.current_status == 'completed' and self.is_blocked_status(task):
+                tag = 'task_blocked'
+            else:
+                tag = 'task'
+
+            item_id = self.task_tree.insert(
+                '',
+                tk.END,
+                values=(
+                    task.id,
+                    workflow_name,
+                    task.title,
+                    enhancement_title,
+                    task.assigned_agent,
+                ),
+                tags=(tag,)
+            )
+            task_id_to_item[task.id] = item_id
+
+        # Restore selection if task still exists
+        if selected_task_id and selected_task_id in task_id_to_item:
+            self.task_tree.selection_set(task_id_to_item[selected_task_id])
 
     def format_runtime(self, seconds):
         """Format runtime using TimeUtils."""
@@ -601,26 +690,12 @@ class MainView:
 
         return "-"
 
-    def toggle_auto_refresh(self):
-        """Toggle auto-refresh."""
-        self.state.auto_refresh_enabled = self.auto_refresh_var.get()
-
-        if self.state.auto_refresh_enabled:
-            if self.state.connection_state == ConnectionState.CONNECTED:
-                self.start_auto_refresh()
-            self.refresh_label.config(text=f"Auto-refresh: ✓ ON ({self.state.auto_refresh_interval}s)")
-        else:
-            if self.auto_refresh_timer:
-                self.root.after_cancel(self.auto_refresh_timer)
-                self.auto_refresh_timer = None
-            self.refresh_label.config(text="Auto-refresh: OFF")
-
     def start_auto_refresh(self):
-        """Start auto-refresh timer."""
+        """Start auto-refresh timer (always on when connected)."""
         if self.auto_refresh_timer:
             self.root.after_cancel(self.auto_refresh_timer)
 
-        if self.state.auto_refresh_enabled and self.state.connection_state == ConnectionState.CONNECTED:
+        if self.state.connection_state == ConnectionState.CONNECTED:
             self.refresh()
             interval_ms = self.state.auto_refresh_interval * 1000
             self.auto_refresh_timer = self.root.after(interval_ms, self.start_auto_refresh)
@@ -642,6 +717,7 @@ class MainView:
             task = self.get_selected_task()
 
             if task:
+                # Task row - show task-specific menu
                 can_start = task.status == 'pending'
                 can_cancel = task.status in ['pending', 'active']
                 can_rerun = task.status not in ['pending', 'active']
@@ -667,7 +743,13 @@ class MainView:
 
                 menu.add_separator()
                 menu.add_command(label="Copy Task ID", command=self.copy_task_id)
+            else:
+                # Parent row (status group header) - show generic menu
+                menu.add_command(label="Create Task...", command=self.create_task)
+                menu.add_separator()
+                menu.add_command(label="Refresh", command=self.refresh)
         else:
+            # Empty area - show generic menu
             menu.add_command(label="Create Task...", command=self.create_task)
             menu.add_separator()
             menu.add_command(label="Refresh", command=self.refresh)
@@ -688,7 +770,8 @@ class MainView:
         queue_state = self.queue.get_queue_state()
 
         for task in (queue_state.pending_tasks + queue_state.active_workflows +
-                     queue_state.completed_tasks + queue_state.failed_tasks):
+                     queue_state.completed_tasks + queue_state.failed_tasks +
+                     queue_state.cancelled_tasks):
             if task.id == task_id:
                 return task
         return None
@@ -796,6 +879,25 @@ class MainView:
                 self.refresh()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to clear finished tasks: {e}")
+
+    def clear_cancelled_tasks(self):
+        """Clear all cancelled tasks from the queue."""
+        if self.state.connection_state != ConnectionState.CONNECTED:
+            messagebox.showwarning("Not Connected", "Please connect first.")
+            return
+
+        response = messagebox.askyesno(
+            "Clear Cancelled Tasks",
+            "This will permanently delete all Cancelled tasks from the queue.\n\n"
+            "Are you sure you want to proceed?"
+        )
+
+        if response:
+            try:
+                self.queue.clear_cancelled_tasks()
+                self.refresh()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to clear cancelled tasks: {e}")
 
     def reset_queue(self):
         """Reset the entire queue system to empty state."""

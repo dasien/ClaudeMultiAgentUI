@@ -4,14 +4,12 @@ Version 8.0 - Direct Python API integration (no subprocess calls).
 """
 
 import sys
-import json
 import threading
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 
-from ..models import Task, AgentStatus, QueueState
-from .path_utils import PathUtils
+from ..models import Task, QueueState
 
 
 class CMATInterface:
@@ -53,17 +51,8 @@ class CMATInterface:
                 "  pip install pyyaml"
             )
 
-        # Update file paths to new locations (v8.2+)
-        self.queue_file = self.project_root / ".claude/data/task_queue.json"
-        self.templates_file = self.project_root / ".claude/data/workflow_templates.json"
-        self.learnings_file = self.project_root / ".claude/data/learnings.json"
-        self.models_file = self.project_root / ".claude/data/models.json"
+        # Logs directory for operations log viewing
         self.logs_dir = self.project_root / ".claude/logs"
-        self.agents_file = self.project_root / ".claude/agents/agents.json"
-        self.tools_file = self.project_root / ".claude/tools/tools.json"
-        self.skills_file = self.project_root / ".claude/skills/skills.json"
-
-        # Ensure directories exist
         self.logs_dir.mkdir(parents=True, exist_ok=True)
 
     # =========================================================================
@@ -129,27 +118,34 @@ class CMATInterface:
             if task.status.value in ['pending', 'active']:
                 self.cmat.queue.cancel(task.id, reason=reason)
 
+    def clear_tasks(self, task_ids: List[str]) -> int:
+        """Remove specific tasks from the queue by ID.
+
+        Args:
+            task_ids: List of task IDs to remove.
+
+        Returns:
+            Count of tasks actually removed.
+        """
+        return self.cmat.queue.clear_tasks(task_ids)
+
     def clear_finished_tasks(self):
         """Clear all completed and failed tasks from history."""
-        queue_data = self._read_queue_file()
-        queue_data['tasks'] = [
-            t for t in queue_data.get('tasks', [])
-            if t.get('status') not in ['completed', 'failed']
-        ]
-        self._write_queue_file(queue_data)
+        queue_state = self.get_queue_state()
+        task_ids = [t.id for t in queue_state.completed_tasks + queue_state.failed_tasks]
+        if task_ids:
+            self.clear_tasks(task_ids)
+
+    def clear_cancelled_tasks(self):
+        """Clear all cancelled tasks from the queue."""
+        queue_state = self.get_queue_state()
+        task_ids = [t.id for t in queue_state.cancelled_tasks]
+        if task_ids:
+            self.clear_tasks(task_ids)
 
     def reset_queue(self):
         """Reset the entire queue system to empty state."""
-        empty_queue = {
-            "queue_metadata": {
-                "created": datetime.utcnow().isoformat() + "Z",
-                "version": "3.0.0",
-                "description": "Task queue for multi-agent development system"
-            },
-            "tasks": [],
-            "agent_status": {}
-        }
-        self._write_queue_file(empty_queue)
+        self.cmat.queue.init(force=True)
 
     def fail_task(self, task_id: str, error: str = ""):
         """Fail a task."""
@@ -157,17 +153,7 @@ class CMATInterface:
 
     def update_metadata(self, task_id: str, key: str, value: str):
         """Update task metadata."""
-        task = self.cmat.queue.get(task_id)
-        if task and task.metadata:
-            # Update metadata directly in queue file
-            queue_data = self._read_queue_file()
-            for task_data in queue_data.get('tasks', []):
-                if task_data['id'] == task_id:
-                    if 'metadata' not in task_data:
-                        task_data['metadata'] = {}
-                    task_data['metadata'][key] = value
-                    break
-            self._write_queue_file(queue_data)
+        self.cmat.queue.update_metadata(task_id, {key: value})
 
     def get_queue_state(self) -> QueueState:
         """Get current queue state."""
@@ -247,6 +233,7 @@ class CMATInterface:
             active_workflows=[t for t in ui_tasks if t.status == 'active'],
             completed_tasks=[t for t in ui_tasks if t.status == 'completed'],
             failed_tasks=[t for t in ui_tasks if t.status == 'failed'],
+            cancelled_tasks=[t for t in ui_tasks if t.status == 'cancelled'],
             agent_status={}
         )
 
@@ -426,102 +413,52 @@ class CMATInterface:
                           input_pattern: str, output_filename: str,
                           position: Optional[int] = None):
         """Add a step to a workflow template."""
-        # This would require implementing in CMAT Python API
-        # For now, direct JSON manipulation
-        templates_data = self._read_templates_file()
-        workflow = templates_data.get('workflows', {}).get(workflow_name)
-        if not workflow:
-            raise ValueError(f"Workflow {workflow_name} not found")
-
-        new_step = {
+        step_data = {
             'agent': agent,
             'input': input_pattern,
             'required_output': output_filename,
             'description': '',
             'on_status': {}
         }
-
-        if position is None:
-            workflow['steps'].append(new_step)
-        else:
-            workflow['steps'].insert(position, new_step)
-
-        self._write_templates_file(templates_data)
+        self.cmat.workflow.add_step(workflow_name, step_data, position)
 
     def edit_workflow_step(self, workflow_name: str, step_number: int,
                            input_pattern: Optional[str] = None,
                            output_filename: Optional[str] = None):
         """Edit an existing workflow step."""
-        templates_data = self._read_templates_file()
-        workflow = templates_data.get('workflows', {}).get(workflow_name)
-        if not workflow:
-            raise ValueError(f"Workflow {workflow_name} not found")
-
         step_index = step_number - 1
-        if step_index >= len(workflow['steps']):
+        template = self.cmat.workflow.get(workflow_name)
+        if not template:
+            raise ValueError(f"Workflow {workflow_name} not found")
+        if step_index >= len(template.steps):
             raise ValueError(f"Step {step_number} not found")
 
-        step = workflow['steps'][step_index]
+        # Get current step and update fields
+        step = template.steps[step_index]
         if input_pattern:
-            step['input'] = input_pattern
+            step.input = input_pattern
         if output_filename:
-            step['required_output'] = output_filename
+            step.required_output = output_filename
 
-        self._write_templates_file(templates_data)
+        self.cmat.workflow.update(template)
 
     def remove_workflow_step(self, workflow_name: str, step_number: int):
         """Remove a step from workflow template."""
-        templates_data = self._read_templates_file()
-        workflow = templates_data.get('workflows', {}).get(workflow_name)
-        if not workflow:
-            raise ValueError(f"Workflow {workflow_name} not found")
-
         step_index = step_number - 1
-        if step_index >= len(workflow['steps']):
-            raise ValueError(f"Step {step_number} not found")
-
-        workflow['steps'].pop(step_index)
-        self._write_templates_file(templates_data)
+        self.cmat.workflow.remove_step(workflow_name, step_index)
 
     def add_workflow_transition(self, workflow_name: str, step_number: int,
                                 status: str, next_step: str, auto_chain: bool = True):
         """Add status transition to workflow step."""
-        templates_data = self._read_templates_file()
-        workflow = templates_data.get('workflows', {}).get(workflow_name)
-        if not workflow:
-            raise ValueError(f"Workflow {workflow_name} not found")
-
-        step_index = step_number
-        if step_index >= len(workflow['steps']):
-            raise ValueError(f"Step {step_number} not found")
-
-        step = workflow['steps'][step_index]
-        if 'on_status' not in step:
-            step['on_status'] = {}
-
-        step['on_status'][status] = {
+        transition = {
             'next_step': next_step,
             'auto_chain': auto_chain
         }
-
-        self._write_templates_file(templates_data)
+        self.cmat.workflow.add_transition(workflow_name, step_number, status, transition)
 
     def remove_workflow_transition(self, workflow_name: str, step_number: int, status: str):
         """Remove status transition from workflow step."""
-        templates_data = self._read_templates_file()
-        workflow = templates_data.get('workflows', {}).get(workflow_name)
-        if not workflow:
-            raise ValueError(f"Workflow {workflow_name} not found")
-
-        step_index = step_number
-        if step_index >= len(workflow['steps']):
-            raise ValueError(f"Step {step_number} not found")
-
-        step = workflow['steps'][step_index]
-        if 'on_status' in step and status in step['on_status']:
-            del step['on_status'][status]
-
-        self._write_templates_file(templates_data)
+        self.cmat.workflow.remove_transition(workflow_name, step_number, status)
 
     def list_workflow_transitions(self, workflow_name: str, step_number: int) -> List[Dict]:
         """List transitions for a workflow step."""
@@ -581,6 +518,52 @@ class CMATInterface:
             messages.append("✓ Workflow validation passed")
 
         return is_valid, messages
+
+    def save_workflow_template(self, slug: str, template_data: dict) -> None:
+        """Save/update a workflow template."""
+        self.cmat.workflow.update(slug, template_data)
+
+    def create_workflow_template(self, slug: str, template_data: dict) -> None:
+        """Create a new workflow template."""
+        self.cmat.workflow.create(slug, template_data)
+
+    def delete_workflow_template(self, slug: str) -> None:
+        """Delete a workflow template."""
+        self.cmat.workflow.delete(slug)
+
+    # =========================================================================
+    # AGENT COMMANDS - CRUD
+    # =========================================================================
+
+    def create_agent(self, agent_data: dict) -> None:
+        """Create a new agent."""
+        self.cmat.agents.add(agent_data)
+
+    def update_agent(self, agent_file: str, agent_data: dict) -> None:
+        """Update an existing agent."""
+        self.cmat.agents.update(agent_file, agent_data)
+
+    def delete_agent(self, agent_file: str) -> None:
+        """Delete an agent."""
+        self.cmat.agents.delete(agent_file)
+
+    def get_agent(self, agent_file: str) -> Optional[Dict]:
+        """Get a specific agent by file name.
+
+        Returns dict with agent data including 'instructions' if available.
+        """
+        agent = self.cmat.agents.get(agent_file)
+        if not agent:
+            return None
+        return {
+            'name': agent.name,
+            'agent-file': agent.agent_file,
+            'role': agent.role,
+            'description': agent.description or '',
+            'tools': agent.tools,
+            'skills': agent.skills,
+            'instructions': getattr(agent, 'instructions', None)
+        }
 
     # =========================================================================
     # SKILLS COMMANDS
@@ -783,11 +766,17 @@ class CMATInterface:
 
     def get_tools_data(self) -> Optional[Dict]:
         """Get tools configuration."""
-        if not self.tools_file.exists():
-            return None
-
-        with open(self.tools_file, 'r') as f:
-            return json.load(f)
+        tools = self.cmat.tools.list_all()
+        return {
+            'tools': [
+                {
+                    'name': tool.name,
+                    'description': tool.description or '',
+                    'category': getattr(tool, 'category', ''),
+                }
+                for tool in tools
+            ]
+        }
 
     def get_task_log(self, task_id: str, source_file: str) -> Optional[str]:
         """Get log content for a task."""
@@ -859,30 +848,6 @@ class CMATInterface:
                     break
 
         return skills_used
-
-    # =========================================================================
-    # HELPER METHODS
-    # =========================================================================
-
-    def _read_queue_file(self) -> dict:
-        """Read queue file directly."""
-        with open(self.queue_file, 'r') as f:
-            return json.load(f)
-
-    def _write_queue_file(self, data: dict):
-        """Write queue file directly."""
-        with open(self.queue_file, 'w') as f:
-            json.dump(data, f, indent=2)
-
-    def _read_templates_file(self) -> dict:
-        """Read templates file directly."""
-        with open(self.templates_file, 'r') as f:
-            return json.load(f)
-
-    def _write_templates_file(self, data: dict):
-        """Write templates file directly."""
-        with open(self.templates_file, 'w') as f:
-            json.dump(data, f, indent=2)
 
     def _extract_enhancement_name(self, source_file: str) -> Optional[str]:
         """Extract enhancement name from source file path."""

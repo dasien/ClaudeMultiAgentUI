@@ -9,7 +9,7 @@ long_description = readme_file.read_text() if readme_file.exists() else ""
 
 setup(
     name="claude-queue-ui",
-    version="2.0.0",
+    version="2.1.0",
     author="Claude Multi-Agent Template Project",
     description="A graphical interface for managing multi-agent development workflows",
     long_description=long_description,

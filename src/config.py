@@ -10,7 +10,7 @@ class Config:
 
     # Application info
     APP_NAME = "Claude Multi-Agent Manager"
-    VERSION = "1.5.0"
+    VERSION = "2.1.0"
 
     # Auto-refresh settings for main task view
     AUTO_REFRESH_INTERVAL = 3  # seconds
@@ -30,7 +30,8 @@ class Config:
         'pending': '#2196F3',  # Blue
         'active': '#FF9800',  # Orange
         'completed': '#4CAF50',  # Green
-        'failed': '#F44336'  # Red
+        'failed': '#F44336',  # Red
+        'cancelled': '#9E9E9E'  # Grey
     }
 
     # Priority colors
@@ -46,7 +47,8 @@ class Config:
         'pending': '#FFFFFF',  # White
         'active': '#FFF9E6',  # Light yellow
         'completed': '#E8F5E9',  # Light green
-        'failed': '#FFEBEE'  # Light red
+        'failed': '#FFEBEE',  # Light red
+        'cancelled': '#F5F5F5'  # Light grey
     }
 
 
